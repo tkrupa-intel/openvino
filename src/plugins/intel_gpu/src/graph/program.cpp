@@ -1828,7 +1828,11 @@ void program::save(cldnn::BinaryOutputBuffer& ob) const {
 void program::load(cldnn::BinaryInputBuffer& ib) {
     init_program();
 
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+    std::wstring weights_path;
+#else
     std::string weights_path;
+#endif
     ib >> weights_path;
     ov::AnyMap weights_path_property{{"GPU_WEIGHTS_PATH", weights_path}};
     _config.set_property(weights_path_property);
@@ -1842,6 +1846,7 @@ void program::load(cldnn::BinaryInputBuffer& ib) {
             continue;
 
         std::shared_ptr<cldnn::primitive> prim;
+        prim->weights_path = weights_path;
         ib >> prim;
         get_or_create(prim);
     }

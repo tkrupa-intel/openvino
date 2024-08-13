@@ -235,6 +235,12 @@ public:
 
     size_t num_outputs;
 
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+    std::wstring weights_path = "";
+#else
+    std::string weights_path = "";
+#endif
+
     virtual const std::string& get_type_info() const = 0;
     virtual void save(BinaryOutputBuffer& ob) const {
         ob << type_string();

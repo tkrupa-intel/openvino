@@ -92,12 +92,16 @@ struct data : public primitive_base<data> {
         fs >> bin_path;
         fs.close();
 
-        auto mapped_memory = ov::load_mmap_object(bin_path);
-        std::shared_ptr<ov::SharedBuffer<std::shared_ptr<ov::MappedMemory>>> shared_buf;
         // TODO: propagate weights_path here
+        std::shared_ptr<ov::SharedBuffer<std::shared_ptr<ov::MappedMemory>>> shared_buf;
         if (is_cache_without_weights) {
             ib >> bin_offset;
             original_size = data_size;
+
+            if (weights_path == "") {
+                OPENVINO_THROW("weights_path is expected to be set during weightless cache load!");
+            }
+            auto mapped_memory = ov::load_mmap_object(weights_path);
             shared_buf = std::make_shared<ov::SharedBuffer<std::shared_ptr<ov::MappedMemory>>>(
                 mapped_memory->data() + bin_offset,
                 data_size,
