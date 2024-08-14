@@ -34,6 +34,11 @@ struct data : public primitive_base<data> {
 
     size_t original_size = SIZE_MAX;
     size_t bin_offset = SIZE_MAX;
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+    std::wstring weights_path = "";
+#else
+    std::string weights_path = "";
+#endif
 
     size_t hash() const override {
         size_t seed = primitive::hash();
@@ -54,8 +59,13 @@ struct data : public primitive_base<data> {
 
         bool is_cache_without_weights = bin_offset != SIZE_MAX && data_size == original_size;
         if (is_cache_without_weights) {
+            if (weights_path == "") {
+                OPENVINO_THROW("weights_path is expected to be set during weightless cache load!");
+            }
+
             ob << true;
             ob << bin_offset;
+            ob << weights_path;
         } else {
             ob << false;
             if (_allocation_type == allocation_type::usm_host || _allocation_type == allocation_type::usm_shared) {
@@ -87,20 +97,12 @@ struct data : public primitive_base<data> {
         bool is_cache_without_weights;
         ib >> is_cache_without_weights;
 
-        std::ifstream fs("/home/tkrupa/test/current.txt");
-        std::string bin_path;
-        fs >> bin_path;
-        fs.close();
-
-        // TODO: propagate weights_path here
         std::shared_ptr<ov::SharedBuffer<std::shared_ptr<ov::MappedMemory>>> shared_buf;
         if (is_cache_without_weights) {
             ib >> bin_offset;
+            ib >> weights_path;
             original_size = data_size;
 
-            if (weights_path == "") {
-                OPENVINO_THROW("weights_path is expected to be set during weightless cache load!");
-            }
             auto mapped_memory = ov::load_mmap_object(weights_path);
             shared_buf = std::make_shared<ov::SharedBuffer<std::shared_ptr<ov::MappedMemory>>>(
                 mapped_memory->data() + bin_offset,
