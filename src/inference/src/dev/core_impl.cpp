@@ -777,6 +777,8 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::compile_model(const std::shared_ptr<
     if (cacheManager && device_supports_model_caching(plugin, parsed._config) && !is_proxy_device(plugin)) {
         CacheContent cacheContent{cacheManager, parsed._core_config.get_enable_mmap()};
         cacheContent.blobId = ov::ModelCache::compute_hash(model, create_compile_config(plugin, parsed._config));
+        std::weak_ptr<const ov::Model> model_lookup = model;
+        std::cout << "Model users before: " << model_lookup.use_count() << std::endl;
         if (auto mode_it = parsed._config.find(ov::cache_mode.name()); mode_it != parsed._config.end()) {
             if (mode_it->second.as<ov::CacheMode>() == ov::CacheMode::OPTIMIZE_SIZE) {
                 cacheContent.model = std::const_pointer_cast<ov::Model>(model);
@@ -790,6 +792,8 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::compile_model(const std::shared_ptr<
                                            ov::SoPtr<ov::IRemoteContext>{},
                                            cacheContent);
         });
+        cacheContent.model = nullptr;
+        std::cout << "Model users after: " << model_lookup.use_count() << std::endl;
     } else {
         res = plugin.compile_model(model, parsed._config);
     }
@@ -806,7 +810,6 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::compile_model(const std::shared_ptr<
     ov::AnyMap config_with_batch = config;
     // if auto-batching is applicable, the below function will patch the device name and config accordingly:
     auto model = apply_auto_batching(model_, deviceName, config_with_batch);
-
     auto parsed = parseDeviceNameIntoConfig(deviceName, coreConfig, config_with_batch, is_proxy_device(deviceName));
     auto plugin = get_plugin(parsed._deviceName);
     ov::SoPtr<ov::ICompiledModel> res;
@@ -1410,6 +1413,7 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::compile_model_and_cache(ov::Plugin& 
                                                                     const ov::SoPtr<ov::IRemoteContext>& context,
                                                                     const CacheContent& cacheContent) const {
     OV_ITT_SCOPED_TASK(ov::itt::domains::OV, "CoreImpl::compile_model_and_cache");
+    
     ov::SoPtr<ov::ICompiledModel> compiled_model =
         context ? plugin.compile_model(model, context, parsedConfig) : plugin.compile_model(model, parsedConfig);
     if (cacheContent.cacheManager && device_supports_model_caching(plugin)) {
@@ -1441,6 +1445,8 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::load_model_from_cache(
     const ov::AnyMap& config,
     const ov::SoPtr<ov::IRemoteContext>& context,
     std::function<ov::SoPtr<ov::ICompiledModel>()> compile_model_lambda) const {
+    std::weak_ptr<const ov::Model> model_weak = cacheContent.model;
+    std::cout << "load_model begin: " << model_weak.use_count() << std::endl;
     ov::SoPtr<ov::ICompiledModel> compiled_model;
     struct HeaderException {};
 
@@ -1516,6 +1522,8 @@ ov::SoPtr<ov::ICompiledModel> ov::CoreImpl::load_model_from_cache(
     // fallback scenario
     if (!compiled_model)
         compiled_model = compile_model_lambda();
+
+    std::cout << "load_model end: " << model_weak.use_count() << std::endl;
 
     return compiled_model;
 }

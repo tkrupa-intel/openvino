@@ -62,6 +62,7 @@ CompiledModel::CompiledModel(std::shared_ptr<ov::Model> model,
       m_inputs(ov::ICompiledModel::inputs()),
       m_outputs(ov::ICompiledModel::outputs()),
       m_loaded_from_cache(false) {
+    
     auto graph_base = std::make_shared<Graph>(model, m_context, m_config, 0);
     for (uint16_t n = 0; n < m_config.get_num_streams(); n++) {
         auto graph = n == 0 ? graph_base : std::make_shared<Graph>(graph_base, n);
@@ -82,9 +83,11 @@ CompiledModel::CompiledModel(cldnn::BinaryInputBuffer& ib,
     , m_context(context)
     , m_config(config)
     , m_wait_executor(std::make_shared<ov::threading::CPUStreamsExecutor>(ov::threading::IStreamsExecutor::Config{"Intel GPU plugin wait executor"}))
-    , m_model_name("")
-    , m_loaded_from_cache(loaded_from_cache) {
+    , m_model_name(""),
+      m_loaded_from_cache(loaded_from_cache) {
+    std::weak_ptr<const ov::Model> model_weak = config.get_model();
     {
+        std::cout << "compiled_model begin: " << model_weak.use_count() << std::endl;
         size_t num_params;
         ib >> num_params;
 
@@ -162,6 +165,9 @@ CompiledModel::CompiledModel(cldnn::BinaryInputBuffer& ib,
         auto graph = n == 0 ? graph_base : std::make_shared<Graph>(graph_base, n);
         m_graphs.push_back(graph);
     }
+    m_config.set_property({ov::hint::model(std::shared_ptr<ov::Model>(nullptr))});
+
+    std::cout << "compiled_model end: " << model_weak.use_count() << std::endl;
 }
 
 std::shared_ptr<ov::IAsyncInferRequest> CompiledModel::create_infer_request() const {

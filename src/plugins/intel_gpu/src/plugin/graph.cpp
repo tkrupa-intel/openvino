@@ -58,6 +58,8 @@ Graph::Graph(cldnn::BinaryInputBuffer &ib, const RemoteContextImpl::Ptr& context
     : m_context(context)
     , m_config(config)
     , m_stream_id(stream_id) {
+    std::weak_ptr<const ov::Model> model_weak = config.get_model();
+    std::cout << "graph begin: " << model_weak.use_count() << std::endl;
     bool need_onednn_engine = false;
     ib >> need_onednn_engine;
     if (need_onednn_engine) {
@@ -92,11 +94,15 @@ Graph::Graph(cldnn::BinaryInputBuffer &ib, const RemoteContextImpl::Ptr& context
     IstreamAttributeVisitor<cldnn::BinaryInputBuffer> visitor(ib);
     m_config.visit_attributes(visitor);
     m_config.set_user_property(config.get_user_properties()); // Copy user properties if those were modified on import call
+    m_config.set_property({ov::hint::model(std::shared_ptr<ov::Model>(nullptr))});
     m_config.finalize(context.get(), nullptr);
 
     auto imported_prog = std::make_shared<cldnn::program>(get_engine(), m_config);
+    imported_prog->set_model_ptr(config.get_model());
     imported_prog->load(ib);
     build(imported_prog);
+
+    std::cout << "graph end: " << model_weak.use_count() << std::endl;
 }
 
 Graph::Graph(std::shared_ptr<Graph> graph, uint16_t stream_id)

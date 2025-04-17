@@ -198,6 +198,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
 std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<const ov::Model>& model,
                                                           const ov::AnyMap& orig_config,
                                                           const ov::SoPtr<ov::IRemoteContext>& context) const {
+    
     auto context_impl = get_context_impl(context);
     auto device_id = ov::DeviceIDParser{context_impl->get_device_name()}.get_device_id();
 
@@ -306,6 +307,9 @@ std::shared_ptr<ov::ICompiledModel> Plugin::import_model(std::istream& model, co
 std::shared_ptr<ov::ICompiledModel> Plugin::import_model(std::istream& model,
                                                          const ov::SoPtr<ov::IRemoteContext>& context,
                                                          const ov::AnyMap& orig_config) const {
+    std::weak_ptr<const ov::Model> model_weak =
+        orig_config.at(ov::hint::model.name()).as<std::shared_ptr<const ov::Model>>();
+    std::cout << "Plugin::import_model begin: " << model_weak.use_count() << std::endl;
     OV_ITT_SCOPED_TASK(itt::domains::intel_gpu_plugin, "Plugin::ImportNetwork");
 
     auto context_impl = get_context_impl(context);
@@ -354,6 +358,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::import_model(std::istream& model,
         }
     }
 
+    std::cout << "Plugin::import_model end: " << model_weak.use_count() << std::endl;
     return std::make_shared<CompiledModel>(ib, shared_from_this(), context_impl, config, loaded_from_cache);
 }
 

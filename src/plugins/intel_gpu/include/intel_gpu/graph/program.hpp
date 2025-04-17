@@ -295,6 +295,10 @@ public:
     bool is_new_shape_infer() const { return new_shape_infer; }
     layout_optimizer& get_layout_optimizer() const { return *_layout_optimizer; }
 
+    void set_model_ptr(std::shared_ptr<ov::Model> model_ptr) {
+        _model_ptr = model_ptr;
+     }
+
 private:
     uint32_t prog_id = 0;
     engine& _engine;
@@ -327,6 +331,7 @@ private:
     graph_optimizer_info optimizer_passes_info;
 
     std::map<std::string, std::vector<primitive_id>> state_initializers;
+    std::shared_ptr<ov::Model> _model_ptr;
 
     primitives_info get_current_stage_info() const;
     /*
