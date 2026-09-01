@@ -35,6 +35,9 @@ KERNEL(rms_gpu_bfyx_opt)(
     #if HAS_FUSED_OPS_DECLS
         , FUSED_OPS_DECLS
     #endif
+    #if HAS_DYNAMIC_QUANTIZE
+        , __global OUTPUT1_TYPE* scale
+    #endif
 )
 {
     const uint data_idx = get_global_id(1);
@@ -183,8 +186,14 @@ KERNEL(rms_gpu_bfyx_opt)(
                 FUSED_OPS;
                 normalized = FUSED_OPS_RESULT;
             #endif
+            #if HAS_DYNAMIC_QUANTIZE
+                // guaranteed simd16, reduce over 2 subgroups
+            #endif
             vec_tmp = normalized;
-#else
+#else // SUBGROUP_BLOCK_SIZE == 1
+            #if HAS_DYNAMIC_QUANTIZE
+                OUTPUT_TYPE max_value = OUTPUT_MIN_VAL;
+            #endif // HAS_DYNAMIC_QUANTIZE
             unroll_for (int j = 0; j < SUBGROUP_BLOCK_SIZE; j++) {
 #if ELEMENTWISE_AFFINE
 #if RMS_GAMMA_IS_SCALAR
@@ -200,10 +209,37 @@ KERNEL(rms_gpu_bfyx_opt)(
                     FUSED_OPS;
                     normalized = FUSED_OPS_RESULT;
                 #endif
+                #if HAS_DYNAMIC_QUANTIZE
+                    // TODO add check that it's some kind of float
+                    max_value = fmax(max_value, normalized);
+                #endif
                 vec_tmp[j] = normalized;
             }
-#endif
-            BLOCK_WRITE(output, output_data_offset + subgroup_offset + i * get_sub_group_size(), vec_tmp);
+            #if HAS_DYNAMIC_QUANTIZE
+                int work_items_per_scale = SUB_GROUP_SIZE / SUBGROUP_BLOCK_SIZE;
+                int delta = 1;
+                while (delta < work_items_per_scale)
+                    OUTPUT_TYPE other_max = sub_group_shuffle_down(max_value, max_value, delta);
+                    max_value = fmax(max_value, other_max);
+                    delta *= 2;
+                }
+                SCALE_TYPE quan_scale;
+                if (sub_group_local_id % work_items_per_scale == 0) {
+                    SCALE_TYPE quan_scale = (SCALE_TYPE)(exp2(floor(log2(_convert_float(OUTPUT_VAL_MAX) / convert_float(max_value)))));
+                    // TODO: compute scale_output_idx
+                    scale[scale_output_idx] = TO_OUTPUT1_TYPE(1.0f / quan_scale);
+                }
+                // shuffle up?
+                unroll_for (int j = 0; j < SUBGROUP_BLOCK_SIZE; j++) {
+                    vec_tmp[j] *= quan_scale;
+                }
+            #endif // HAS_DYNAMIC_QUANTIZE
+#endif // SUBGROUP_BLOCK_SIZE == 1
+            #if HAS_DYNAMIC_QUANTIZE
+            //
+            #else
+                BLOCK_WRITE(output, output_data_offset + subgroup_offset + i * get_sub_group_size(), vec_tmp);
+#endif // HAS_DYNAMIC_QUANTIZE
         }
     }
 
@@ -224,6 +260,9 @@ KERNEL(rms_gpu_bfyx_opt)(
             FUSED_OPS;
             normalized = FUSED_OPS_RESULT;
         #endif
+        #if HAS_DYNAMIC_QUANTIZE
+        // TODO
+        #endif
         output[output_data_offset + subgroup_offset + get_sub_group_local_id() + i * get_sub_group_size()] = normalized;
     }
 
@@ -243,6 +282,9 @@ KERNEL(rms_gpu_bfyx_opt)(
             LAST_DIM = workers_per_data * items_num + in_data_idx;
             FUSED_OPS;
             normalized = FUSED_OPS_RESULT;
+        #endif
+        #if HAS_DYNAMIC_QUANTIZE
+        // TODO
         #endif
         output[output_data_offset + workers_per_data * items_num + in_data_idx] = normalized;
     }

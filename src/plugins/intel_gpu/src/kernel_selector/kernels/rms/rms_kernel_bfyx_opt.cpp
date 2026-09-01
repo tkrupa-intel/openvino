@@ -17,6 +17,7 @@ static std::pair<size_t, size_t> get_item_num_and_lws(const rms_params params, s
     auto local_mem_per_wi = 2 * BytesPerElement(input.GetDType());
     auto max_lws = std::min(params.engineInfo.maxWorkGroupSize, params.engineInfo.maxLocalMemSize / local_mem_per_wi);
 
+    // TODO: if DQ with MX, make sure lws * itemsNum divisible by 32, also subgroup size and num_subgroups
     while ((itemsNum > 8 || lws < itemsNum) && (2 * lws <= max_lws)) {
         lws *= 2;
         itemsNum /= 2;
@@ -32,6 +33,9 @@ ParamsKey RMSKernelBfyxOpt::GetSupportedKey() const {
     k.EnableOutputDataType(Datatype::F16);
     k.EnableOutputDataType(Datatype::BF16);
     k.EnableOutputDataType(Datatype::F32);
+    k.EnableOutputDataType(Datatype::F8E4M3);
+    k.EnableOutputDataType(Datatype::F8E5M2);
+    k.EnableOutputDataType(Datatype::F8E8M0);
     k.EnableInputLayout(DataLayout::bfyx);
     k.EnableInputLayout(DataLayout::bfzyx);
     k.EnableOutputLayout(DataLayout::bfyx);
@@ -147,6 +151,10 @@ JitConstants RMSKernelBfyxOpt::GetJitConstants(const rms_params& params, Dispatc
 
         auto conf = FusedOpsConfiguration("", idx_order, "normalized", params.outputs[0].GetDType(), 1);
         jit.Merge(MakeFusedOpsJitConstants(params, { conf }));
+        if (std::find(params.fused_ops.begin(), params.fused_ops.end(), [](const fused_operation_desc& f) { return f.GetType() == kernel_selector::KernelType::DYNAMIC_QUANTIZE; }) != params.fused_ops.end()) {
+            // TODO if mx subgroup block_size at most 8 && subgroup size == 16
+            jit.AddConstant(MakeJitConstant("HAS_DYNAMIC_QUANTIZE", "1"));
+        }
     }
 
     return jit;
