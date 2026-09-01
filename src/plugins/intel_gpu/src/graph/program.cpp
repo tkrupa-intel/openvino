@@ -1042,7 +1042,10 @@ void program::swap_names(program_node& node1, program_node& node2) {
 }
 
 void program::replace_all_usages(program_node& old_node, program_node& new_node, bool remove_if_dangling) {
-    return replace_all_usages(old_node, std::make_pair(&new_node, 0), remove_if_dangling);
+    const size_t num_outputs = old_node.num_outputs;
+    for (size_t i = 0; i < num_outputs; ++i) {
+        replace_all_usages(old_node, std::make_pair(&new_node, static_cast<int32_t>(i)), remove_if_dangling);
+    }
 }
 
 void program::replace_all_usages(program_node& old_node, std::pair<program_node*, int32_t> new_node, bool remove_if_dangling) {
@@ -1216,19 +1219,44 @@ bool program::move_node(program_node& node,
 void program::fuse_nodes(program_node &fused_node,
                          program_node &peer_node,
                          std::map<primitive_id, std::vector<std::pair<primitive_id, size_t>>>* fusing_history) {
-    auto peer_layout = peer_node.get_output_layout();
+    program_node* cur_fused_node = &fused_node;
+    auto peer_layouts = peer_node.get_output_layouts();
+    OPENVINO_ASSERT(peer_layouts.size() == 1 || (peer_layouts.size() == 2 && peer_node.is_type<dynamic_quantize>()));
+
+    if (peer_layouts.size() == 2 && fused_node.is_type<rms>() && peer_node.is_type<dynamic_quantize>()) {
+        // Recreate fused_node with 2 outputs
+        auto orig_rms = fused_node.as<rms>().typed_desc();
+        auto num_inputs = orig_rms->input.size();
+        OPENVINO_ASSERT(num_inputs == 1 || num_inputs == 2);
+        OPENVINO_ASSERT(orig_rms->output_data_types.size() == 1 && orig_rms->output_data_types[0].has_value());
+        const size_t num_outputs = 2;
+
+        std::shared_ptr<primitive> new_rms = nullptr;
+        if (num_inputs == 1) {
+            new_rms = std::make_shared<rms>(orig_rms->id + "_fused", orig_rms->input[0], orig_rms->epsilon, num_outputs);
+        } else {
+            new_rms = std::make_shared<rms>(orig_rms->id + "_fused", orig_rms->input[0], orig_rms->input[1], orig_rms->epsilon, num_outputs);
+        }
+        cur_fused_node = &get_or_create(new_rms);
+        cur_fused_node->add_fused_primitives(fused_node.get_fused_primitives());
+        replace(fused_node, *cur_fused_node);
+        cur_fused_node->output_layouts.emplace_back();
+        cur_fused_node->valid_output_layouts.emplace_back();
+    }
+    auto peer_layout = peer_layouts[0];
+
     fused_primitive_desc local_desc(peer_node.get_primitive());
     local_desc.f_param = get_node_ptr(peer_node.id())->get_fuse_params();
     local_desc.total_num_deps = peer_node.get_dependencies().size();
     local_desc.input_layout = peer_node.get_input_layout(0);
-    local_desc.output_layout = peer_layout;
+    local_desc.output_layouts = peer_layouts;
 
-    if (fused_node.in_shape_of_subgraph && !peer_node.in_shape_of_subgraph) {
-        fused_node.in_shape_of_subgraph = false;
+    if (cur_fused_node->in_shape_of_subgraph && !peer_node.in_shape_of_subgraph) {
+        cur_fused_node->in_shape_of_subgraph = false;
     }
 
-    int32_t orig_fused_node_num_deps = static_cast<int32_t>(fused_node.get_dependencies().size());
-    auto fused_layout = fused_node.get_output_layout();
+    int32_t orig_fused_node_num_deps = static_cast<int32_t>(cur_fused_node->get_dependencies().size());
+    auto fused_layout = cur_fused_node->get_output_layout();
     auto fused_padding = fused_layout.data_padding;
     cldnn::padding needed_padding = padding::max(peer_layout.data_padding,
                                                  fused_padding);
@@ -1239,13 +1267,13 @@ void program::fuse_nodes(program_node &fused_node,
             local_desc.fused_deps.emplace(id.first, id.second);
         }
     }
-    // Add new dependencies to the fused_node
+    // Add new dependencies to the cur_fused_node
     size_t deps_idx = 0;
     for (size_t i = 0; i < peer_node.get_dependencies().size(); i++) {
         auto [dep, port] = peer_node.get_dependency_with_port(i);
-        if (dep->id() == fused_node.id()) {
-            if (fused_node.has_fused_primitives()) {
-                local_desc.inputs.emplace_back(FusedInputType::INTERNAL, fused_node.get_fused_primitives().size() - 1, fused_layout.data_type);
+        if (dep->id() == cur_fused_node->id()) {
+            if (cur_fused_node->has_fused_primitives()) {
+                local_desc.inputs.emplace_back(FusedInputType::INTERNAL, cur_fused_node->get_fused_primitives().size() - 1, fused_layout.data_type);
             } else {
                 local_desc.inputs.emplace_back(FusedInputType::ORIGINAL, 0, fused_layout.data_type);
             }
@@ -1277,10 +1305,10 @@ void program::fuse_nodes(program_node &fused_node,
             }
         }
 
-        fused_node.dependencies.push_back({dep, port});
-        local_desc.inputs.emplace_back(FusedInputType::EXTERNAL, fused_node.dependencies.size() - 1, dep->get_output_layout(port != 0).data_type);
+        cur_fused_node->dependencies.push_back({dep, port});
+        local_desc.inputs.emplace_back(FusedInputType::EXTERNAL, cur_fused_node->dependencies.size() - 1, dep->get_output_layout(port != 0).data_type);
         local_desc.deps.emplace_back(dep->id(), deps_idx++);
-        dep->users.push_back(&fused_node);
+        dep->users.push_back(cur_fused_node);
     }
     if (!local_desc.deps.empty()) {
         local_desc.outer_dep_start_idx = orig_fused_node_num_deps;
@@ -1288,12 +1316,12 @@ void program::fuse_nodes(program_node &fused_node,
 
     local_desc.total_num_deps = std::min(local_desc.total_num_deps, deps_idx);
 
-    fused_node.add_fused_primitive(local_desc);
+    cur_fused_node->add_fused_primitive(local_desc);
     // This shouldn't happen, but who knows...
     if (peer_node.has_fused_primitives()) {
-        fused_node.add_fused_primitives(peer_node.get_fused_primitives());
+        cur_fused_node->add_fused_primitives(peer_node.get_fused_primitives());
     }
-    add_optimized_primitive_info(peer_node.id(), { fused_node.id() });
+    add_optimized_primitive_info(peer_node.id(), { cur_fused_node->id() });
 
     for (auto& user : peer_node.users) {
         size_t dep_idx = 0;
@@ -1310,12 +1338,12 @@ void program::fuse_nodes(program_node &fused_node,
         auto& dep = peer_node.get_dependency(peer_node.get_dependencies().size() - 1);
         remove_connection(dep, peer_node);
     }
-    replace_all_usages(peer_node, fused_node);
+    replace_all_usages(peer_node, *cur_fused_node);
 
     // Update output layout. Recalculation is not needed.
-    fused_node.merge_output_padding(needed_padding);
-    fused_node.set_output_layout(peer_layout, false);
-    fused_node.recalc_output_layout(true);
+    cur_fused_node->merge_output_padding(needed_padding);
+    cur_fused_node->set_output_layouts(peer_layouts, false);
+    cur_fused_node->recalc_output_layouts(true);
 }
 
 void program::remove_nodes(std::vector<program_node*>& to_remove) {

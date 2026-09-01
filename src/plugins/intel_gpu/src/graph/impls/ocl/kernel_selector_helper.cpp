@@ -1362,7 +1362,8 @@ void set_default_params(const kernel_impl_params& param_info, kernel_selector::b
             desc.dep_idx_start = fused_prim.outer_dep_start_idx;
             desc.dep_size = fused_prim.deps.size();
             desc.op_id = op_id++;
-            desc.output_tensor = convert_data_tensor(fused_prim.output_layout);
+            OPENVINO_ASSERT(fused_prim.output_layouts.size() == 1);
+            desc.output_tensor = convert_data_tensor(fused_prim.output_layouts[0]);
             prim_id_type_map[fused_prim.desc->id] = std::make_pair(desc.op_id, desc.output_tensor.GetDType());
             if (fused_prim.has_outer_dep()) {
                 for (size_t i = desc.dep_idx_start; i < desc.dep_idx_start + desc.dep_size; i++) {
