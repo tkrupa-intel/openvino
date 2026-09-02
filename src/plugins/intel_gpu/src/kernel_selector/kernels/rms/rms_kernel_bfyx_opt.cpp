@@ -149,10 +149,14 @@ JitConstants RMSKernelBfyxOpt::GetJitConstants(const rms_params& params, Dispatc
             OPENVINO_THROW("rms_bfyx_opt doesn't support 5D or higher dims.");
         }
 
-        auto conf = FusedOpsConfiguration("", idx_order, "normalized", params.outputs[0].GetDType(), 1);
+        const bool has_dynamic_quantize = std::find(params.fused_ops.begin(), params.fused_ops.end(), [](const fused_operation_desc& f) {
+                                              return f.GetType() == kernel_selector::KernelType::DYNAMIC_QUANTIZE;
+                                          }) != params.fused_ops.end();
+        const auto fused_output_type = has_dynamic_quantize ? Datatype::F32 : params.outputs[0].GetDType();
+        auto conf = FusedOpsConfiguration("", idx_order, "normalized", fused_output_type, 1);
         jit.Merge(MakeFusedOpsJitConstants(params, { conf }));
-        if (std::find(params.fused_ops.begin(), params.fused_ops.end(), [](const fused_operation_desc& f) { return f.GetType() == kernel_selector::KernelType::DYNAMIC_QUANTIZE; }) != params.fused_ops.end()) {
-            // TODO if mx subgroup block_size at most 8 && subgroup size == 16
+        if (has_dynamic_quantize) {
+            // TODO if mx subgroup block_size at most 8 && subgroup size == 16 && subgroup block size != 1
             jit.AddConstant(MakeJitConstant("HAS_DYNAMIC_QUANTIZE", "1"));
         }
     }
