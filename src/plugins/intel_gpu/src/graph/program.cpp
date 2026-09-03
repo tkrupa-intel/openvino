@@ -1228,7 +1228,6 @@ void program::fuse_nodes(program_node &fused_node,
         auto orig_rms = fused_node.as<rms>().typed_desc();
         auto num_inputs = orig_rms->input.size();
         OPENVINO_ASSERT(num_inputs == 1 || num_inputs == 2);
-        OPENVINO_ASSERT(orig_rms->output_data_types.size() == 1 && orig_rms->output_data_types[0].has_value());
         const size_t num_outputs = 2;
 
         std::shared_ptr<primitive> new_rms = nullptr;

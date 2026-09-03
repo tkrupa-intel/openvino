@@ -13,14 +13,15 @@
 namespace cldnn {
 GPU_DEFINE_PRIMITIVE_TYPE_ID(rms);
 
-std::vector<layout> rms_inst::calc_output_layout(rms_node const& node, kernel_impl_params const& impl_param) {
+template <typename ShapeType>
+std::vector<layout> rms_inst::calc_output_layouts(rms_node const& node, kernel_impl_params const& impl_param) {
     auto desc = impl_param.typed_desc<rms>();
     auto input_layout = impl_param.get_input_layout();
     auto output_type = desc->output_data_types[0].value_or(input_layout.data_type);
 
     if (impl_param.has_fused_primitives()) {
         const auto& fused_prims = node.get_fused_primitives();
-        auto dq_it = std::find(fused_prims.begin(), fused_prims.end(), [](cldnn::fused_primitive_desc& f) {
+        auto dq_it = std::find_if(fused_prims.begin(), fused_prims.end(), [](const cldnn::fused_primitive_desc& f) {
             return f.is_type<dynamic_quantize>();
         });
         if (dq_it != fused_prims.end()) {
@@ -37,6 +38,14 @@ std::vector<layout> rms_inst::calc_output_layout(rms_node const& node, kernel_im
     }
 
     return { layout(output_type, input_layout.format, input_layout.get_tensor()) };
+}
+
+template std::vector<layout> rms_inst::calc_output_layouts<ov::PartialShape>(
+    rms_node const& node,
+    const kernel_impl_params& impl_param);
+
+layout rms_inst::calc_output_layout(rms_node const& node, kernel_impl_params const& impl_param) {
+    return calc_output_layouts<ov::PartialShape>(node, impl_param)[0];
 }
 
 std::string rms_inst::to_string(rms_node const& node) {

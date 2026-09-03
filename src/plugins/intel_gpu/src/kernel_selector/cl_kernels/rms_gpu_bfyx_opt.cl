@@ -11,6 +11,8 @@
 #define USE_BLOCK_WRITE ((OUTPUT_TYPE_SIZE * OUTPUT_FEATURE_PITCH) & 0xF == 0)
 
 #if HAS_DYNAMIC_QUANTIZE
+#include "include/batch_headers/common.cl"
+#include "include/f8_utils.cl"
 #define NORMALIZED_TYPE float
 #define TO_NORMALIZED_TYPE(x) convert_float(x)
 #define NUM_SCALES_PER_SUBGROUP (SUBGROUP_BLOCK_SIZE / 2)
@@ -41,11 +43,11 @@ KERNEL(rms_gpu_bfyx_opt)(
     const __global INPUT1_TYPE* gamma,
 #endif
     __global OUTPUT_TYPE* output
-    #if HAS_FUSED_OPS_DECLS
-        , FUSED_OPS_DECLS
-    #endif
     #if HAS_DYNAMIC_QUANTIZE
         , __global OUTPUT1_TYPE* scale
+    #endif
+    #if HAS_FUSED_OPS_DECLS
+        , FUSED_OPS_DECLS
     #endif
 )
 {

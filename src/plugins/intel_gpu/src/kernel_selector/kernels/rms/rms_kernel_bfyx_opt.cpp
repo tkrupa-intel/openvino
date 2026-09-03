@@ -149,7 +149,7 @@ JitConstants RMSKernelBfyxOpt::GetJitConstants(const rms_params& params, Dispatc
             OPENVINO_THROW("rms_bfyx_opt doesn't support 5D or higher dims.");
         }
 
-        const bool has_dynamic_quantize = std::find(params.fused_ops.begin(), params.fused_ops.end(), [](const fused_operation_desc& f) {
+        const bool has_dynamic_quantize = std::find_if(params.fused_ops.begin(), params.fused_ops.end(), [](const fused_operation_desc& f) {
                                               return f.GetType() == kernel_selector::KernelType::DYNAMIC_QUANTIZE;
                                           }) != params.fused_ops.end();
         const auto fused_output_type = has_dynamic_quantize ? Datatype::F32 : params.outputs[0].GetDType();

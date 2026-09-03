@@ -984,7 +984,7 @@ TEST(rms_gpu_test, rms_test_bfyx_opt_mxfp8_dynamic_quantize) {
     ref_network.set_input_data("input", input);
     auto ref_outputs = ref_network.execute();
 
-    ASSERT_EQ(fused_network.get_primitive("rms")->get_impl()->get_kernel_name(), "rms_gpu_bfyx_opt");
+    ASSERT_EQ(fused_network.get_primitive("rms_fused")->get_impl()->get_kernel_name(), "rms_gpu_bfyx_opt");
 
     auto compare_output = [&](const primitive_id& output_id) {
         auto output_mem = outputs.at(output_id).get_memory();
