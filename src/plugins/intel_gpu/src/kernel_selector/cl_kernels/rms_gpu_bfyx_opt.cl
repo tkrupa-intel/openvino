@@ -196,8 +196,19 @@ KERNEL(rms_gpu_bfyx_opt)(
                 normalized = FUSED_OPS_RESULT;
             #endif
             #if HAS_DYNAMIC_QUANTIZE
-                // guaranteed simd16, reduce over 2 subgroups
-            #endif
+                //NORMALIZED_TYPE sg_max = sub_group_reduce_max(fabs(normalized));
+                //if (get_sub_group_local_id() == 0) {
+                //    slm_buf[get_sub_group_id()] = sg_max;
+                //}
+                //barrier(CLK_LOCAL_MEM_FENCE);
+                //NORMALIZED_TYPE max32 = fmax(sg_max, slm_buf[get_sub_group_id() ^ 1]);
+                //float tmp_scales = convert_float(exp2(floor(log2(_convert_float(OUTPUT_VAL_MAX) / convert_float(max32)))));
+                //normalized *= tmp_scales;
+                //if ((chunk_id % 2 == 0) && get_sub_group_local_id() == 0) {
+                //    int scale_output_idx = (output_data_offset + subgroup_offset + i * get_sub_group_size()) / 32 + j;
+                //    scale[scale_idx] = TO_OUTPUT1_TYPE(1.0f / tmp_scales);
+                //}
+            #endif // HAS_DYNAMIC_QUANTIZE
             vec_tmp = normalized;
 #else // SUBGROUP_BLOCK_SIZE == 1
             #if HAS_DYNAMIC_QUANTIZE
