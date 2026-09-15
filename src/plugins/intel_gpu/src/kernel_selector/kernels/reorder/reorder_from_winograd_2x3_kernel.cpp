@@ -10,8 +10,14 @@ ParamsKey ReorderFromWinograd2x3Kernel::GetSupportedKey() const {
     ParamsKey k;
     k.EnableInputDataType(Datatype::F16);
     k.EnableInputDataType(Datatype::F32);
+    k.EnableInputDataType(Datatype::F8E4M3);
+    k.EnableInputDataType(Datatype::F8E5M2);
+    k.EnableInputDataType(Datatype::F8E8M0);
     k.EnableOutputDataType(Datatype::F16);
     k.EnableOutputDataType(Datatype::F32);
+    k.EnableOutputDataType(Datatype::F8E4M3);
+    k.EnableOutputDataType(Datatype::F8E5M2);
+    k.EnableOutputDataType(Datatype::F8E8M0);
     k.EnableInputLayout(DataLayout::winograd_2x3_s1_data);
     k.EnableWinogradReorder();
     k.EnableDifferentTypes();

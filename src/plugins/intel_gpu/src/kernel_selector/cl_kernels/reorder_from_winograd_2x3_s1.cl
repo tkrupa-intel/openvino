@@ -6,6 +6,10 @@
 // Convert the results using the inverse F(2,3) Winograd transform.
 // --------------------------------------------------------------------------------------------------------------------------------
 
+#if F8E5M2_INPUT || F8E4M3_INPUT || F8E8M0_INPUT || F8E5M2_OUTPUT || F8E4M3_OUTPUT || F8E8M0_OUTPUT
+#include "include/f8_utils.cl"
+#endif
+
 #include "include/batch_headers/fetch_data.cl"
 
 KERNEL(reorder_from_winograd_2x3_s1)(global const UNIT_TYPE* input_winograd, global float* output)

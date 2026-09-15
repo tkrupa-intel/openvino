@@ -122,7 +122,7 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
     if (ifm_valid && valid_lane) {
         val = TO_OUTPUT_TYPE(input[input_idx]);
     } else {
-        val = (OUTPUT_TYPE)0;
+        val = OUTPUT_VAL_ZERO;
     }
 #else
     val = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
