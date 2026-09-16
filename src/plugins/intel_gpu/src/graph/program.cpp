@@ -1215,13 +1215,24 @@ bool program::move_node(program_node& node,
 
 program_node* program::maybe_update_fused_node(program_node &fused_node, program_node& peer_node) {
     auto peer_layouts = peer_node.get_output_layouts();
-    OPENVINO_ASSERT(peer_layouts.size() == 1 || (peer_layouts.size() == 2 && peer_node.is_type<dynamic_quantize>()));
-    if (peer_layouts.size() == 2 && fused_node.is_type<rms>() && peer_node.is_type<dynamic_quantize>()) {
-        // Recreate fused_node with 2 outputs
+	if (peer_layouts.size() == 1 || !peer_node.is_type<dynamic_quantize>()) {
+		return &fused_node;
+	}
+	OPENVINO_ASSERT(peer_layouts.size() == 2);
+
+	auto process_new_node = [&fused_node, this](program_node* new_node) {
+        new_node->add_fused_primitives(fused_node.get_fused_primitives());
+        replace(fused_node, *new_node);
+        new_node->output_layouts.emplace_back();
+        new_node->valid_output_layouts.emplace_back();
+		return new_node;
+	};
+
+	const size_t num_outputs = 2;
+	if (fused_node.is_type<rms>()) {
         auto orig_rms = fused_node.as<rms>().typed_desc();
-        auto num_inputs = orig_rms->input.size();
+		const auto num_inputs = orig_rms->input.size();
         OPENVINO_ASSERT(num_inputs == 1 || num_inputs == 2);
-        const size_t num_outputs = 2;
 
         auto new_rms = &get_or_create(
             orig_rms->input.size() == 1
@@ -1234,14 +1245,29 @@ program_node* program::maybe_update_fused_node(program_node &fused_node, program
                                         orig_rms->input[1],
                                         orig_rms->epsilon,
                                         num_outputs));
+		return process_new_node(new_rms);
+	} else if (fused_node.is_type<fully_connected>()) {
+        auto orig_fc = fused_node.as<fully_connected>().typed_desc();
+        OPENVINO_ASSERT(orig_fc->input.size() == 1);
+        OPENVINO_ASSERT(orig_fc->output_data_types.size() == 1 && orig_fc->output_data_types[0].has_value());
+        auto new_fc = &get_or_create(std::make_shared<fully_connected>(orig_fc->id + "_fused",
+                                                        orig_fc->input[0],
+                                                        orig_fc->weights.pid,
+                                                        orig_fc->bias.pid,
+                                                        orig_fc->decompression_scale.pid,
+                                                        orig_fc->decompression_zero_point.pid,
+                                                        orig_fc->activation_scale,
+                                                        orig_fc->activation_zero_point,
+                                                        orig_fc->activation_precomputed_reduction,
+                                                        orig_fc->output_data_types[0].value(),
+                                                        orig_fc->input_size,
+                                                        orig_fc->weights_rank,
+                                                        orig_fc->weights_transposed,
+                                                        num_outputs));
+		return process_new_node(new_fc);
+	}
 
-        new_rms->add_fused_primitives(fused_node.get_fused_primitives());
-        replace(fused_node, *new_rms);
-        new_rms->output_layouts.emplace_back();
-        new_rms->valid_output_layouts.emplace_back();
-        return new_rms;
-    }
-    return &fused_node;
+	return &fused_node;
 }
 
 void program::fuse_nodes(program_node &fused_node,

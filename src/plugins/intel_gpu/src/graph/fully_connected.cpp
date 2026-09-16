@@ -1,6 +1,7 @@
 // Copyright (C) 2018-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
+#include "dynamic_quantize_inst.h"
 #include "fully_connected_inst.h"
 #include "primitive_type_base.h"
 #include "json_object.h"
@@ -11,6 +12,7 @@
 
 #include "matmul_shape_inference.hpp"
 #include "glu_shape_inference.hpp"
+#include "ov_ops/dynamic_quantize.hpp"
 
 namespace cldnn {
 GPU_DEFINE_PRIMITIVE_TYPE_ID(fully_connected)
@@ -215,13 +217,16 @@ std::vector<layout> fully_connected_inst::calc_output_layouts(fully_connected_no
     };
 
     std::vector<ShapeType> output_shapes = ov::op::v0::shape_infer(&matmul_op, input_shapes);
-    bool has_swiglu = false;
+    bool has_swiglu = false, has_dynamic_quantize = false;
     const auto& fused_prims = node.get_fused_primitives();
-    for (auto f : fused_prims) {
+    for (const auto& f : fused_prims) {
         if (f.is_type<swiglu>()) {
             has_swiglu = true;
             OPENVINO_ASSERT(fused_prims.size() == 1, "Other operation is fused in addition to swiglu!");
-        }
+        } else if (f.is_type<dynamic_quantize>()) {
+            has_dynamic_quantize = true;
+            OPENVINO_ASSERT(&f == &fused_prims.back(), "Dynamic quantize should be the last fused operation!");
+	}
     }
     if (has_swiglu) {
         ov::op::internal::GLU swiglu_op;
@@ -232,6 +237,11 @@ std::vector<layout> fully_connected_inst::calc_output_layouts(fully_connected_no
         swiglu_op.set_glu_type(fused_prims[0].typed_desc<swiglu>()->glu_type);
         std::vector<ShapeType> input_shapes = { output_shapes[0] };
         output_shapes = shape_infer(&swiglu_op, input_shapes);
+    } else if (has_dynamic_quantize) {
+        ov::op::internal::DynamicQuantize dq_op;
+        dq_op.set_attrs(fused_prims.back().typed_desc<dynamic_quantize>()->attrs);
+        std::vector<ShapeType> input_shapes = { output_shapes[0] };
+        output_shapes = ov::op::internal::DynamicQuantize::shape_infer(&dq_op, input_shapes);
     }
 
     bool is_static = input_layout.is_static() && weights_layout.is_static();
@@ -241,6 +251,11 @@ std::vector<layout> fully_connected_inst::calc_output_layouts(fully_connected_no
 
     if (node.get_preferred_output_fmt() != format::any) {
         output_format = node.get_preferred_output_fmt();
+    }
+
+    if (has_dynamic_quantize) { // two outputs
+        auto dq_attrs = fused_prims.back().typed_desc<dynamic_quantize>()->attrs;
+        return {layout{output_shapes[0], dq_attrs.quantization_dt, output_format}, layout{output_shapes[1], dq_attrs.scale_dt, output_format}};
     }
 
     return { layout{output_shapes[0], output_type, output_format} };

@@ -1086,11 +1086,13 @@ void prepare_primitive_fusing::fuse_simple_primitives(program &p) {
 
         auto fuse_dynamic_quantize_f = [&](dynamic_quantize_node& dynamic_quantize_node) {
             auto& input_data = dynamic_quantize_node.get_dependency(0);
-            if (!input_data.is_type<rms>() || input_data.get_users().size() != 1 || input_data.get_dependencies().empty())
+            if (!input_data.is_type<rms>() && !input_data.is_type<fully_connected>()) {
                 return;
-
-            if (input_data.in_shape_of_subgraph || dynamic_quantize_node.in_shape_of_subgraph)
+            }
+			    
+            if (input_data.get_users().size() != 1 || input_data.get_dependencies().empty() || input_data.in_shape_of_subgraph || dynamic_quantize_node.in_shape_of_subgraph) {
                 return;
+            }
 
             auto dyn_quan_prim = dynamic_quantize_node.get_primitive();
             auto attrs = dyn_quan_prim->attrs;

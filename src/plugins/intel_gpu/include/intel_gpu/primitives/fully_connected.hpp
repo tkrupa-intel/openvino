@@ -47,8 +47,9 @@ struct fully_connected : public primitive_base<fully_connected> {
                     const primitive_id& bias = "",
                     const size_t input_size = 2,
                     const size_t weights_rank = 2,
-                    const bool weights_transposed = true)
-        : primitive_base(id, {input}),
+                    const bool weights_transposed = true,
+                    const size_t num_outputs = 1)
+        : primitive_base(id, {input}, num_outputs),
           weights(weights),
           bias(bias),
           input_size(input_size),
@@ -68,8 +69,9 @@ struct fully_connected : public primitive_base<fully_connected> {
                     const data_types data_type,
                     const size_t input_size = 2,
                     const size_t weights_rank = 2,
-                    const bool weights_transposed = true)
-        : primitive_base(id, { input }, 1, {optional_data_type{data_type}}),
+                    const bool weights_transposed = true,
+                    const size_t num_outputs = 1)
+        : primitive_base(id, { input }, num_outputs, {optional_data_type{data_type}}),
           weights(weights),
           bias(bias),
           input_size(input_size),
@@ -93,8 +95,9 @@ struct fully_connected : public primitive_base<fully_connected> {
                     const data_types data_type,
                     const size_t input_size = 2,
                     const size_t weights_rank = 2,
-                    const bool weights_transposed = true)
-        : primitive_base(id, { input }, 1, {optional_data_type{data_type}}),
+                    const bool weights_transposed = true,
+                    const size_t num_outputs = 1)
+        : primitive_base(id, { input }, num_outputs, {optional_data_type{data_type}}),
           weights(weights),
           bias(bias),
           compressed_weights(true),
@@ -130,8 +133,9 @@ struct fully_connected : public primitive_base<fully_connected> {
                     const data_types data_type,
                     const size_t input_size = 2,
                     const size_t weights_rank = 2,
-                    const bool weights_transposed = true)
-        : primitive_base(id, { input }, 1, {optional_data_type{data_type}}),
+                    const bool weights_transposed = true,
+                    const size_t num_outputs = 1)
+        : primitive_base(id, { input }, num_outputs, {optional_data_type{data_type}}),
           weights(weights),
           bias(bias),
           compressed_weights(true),

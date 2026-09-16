@@ -50,11 +50,11 @@ protected:
         }
 
         const auto& prim = instance.get_impl_params()->typed_desc<fully_connected>();
+        int idx = prim->bias.is_valid() ? 3 : 2;
         if (prim->compressed_weights) {
             const auto weights_dt = instance.get_input_layout(1).data_type;
             auto weight_bitwidth = ov::element::Type(weights_dt).bitwidth();
             OPENVINO_ASSERT(weight_bitwidth == 8 || weight_bitwidth == 4, "[GPU] oneDNN supports only 4bit/8bit compressed weights");
-            int idx = prim->bias.is_valid() ? 3 : 2;
 
             if (prim->decompression_scale.is_valid()) {
                 auto decompression_scale_idx = idx++;
@@ -93,6 +93,12 @@ protected:
                 dnnl::memory::desc desc = onednn::layout_to_memory_desc_flatten(act_precomputed_reduction_mem->get_layout(), dnnl::memory::format_tag::ab);
                 args.insert({DNNL_ARG_ATTR_PRECOMPUTED_REDUCTIONS | DNNL_ARG_SRC_0, act_precomputed_reduction_mem->get_onednn_memory(desc)});
             }
+        }
+
+        if(instance.desc()->num_outputs == 2 && instance.get_output_layout(1).data_type == data_types::f8e8m0) {
+            const auto output_scales_mem = instance.output_memory_ptr(1);
+            dnnl::memory::desc desc = onednn::layout_to_memory_desc_flatten(output_scales_mem->get_layout(), dnnl::memory::format_tag::ab);
+            args.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_DST, output_scales_mem->get_onednn_memory(desc)});
         }
 
         return args;
@@ -334,6 +340,13 @@ public:
             }
         }
 
+        const auto output_layouts = impl_params->output_layouts;
+        const bool is_dyn_quan_output = output_layouts.size() == 2 && cldnn::one_of(output_layouts[0].data_type, {data_types::f8e4m3, data_types::f8e5m2}) &&
+                                        output_layouts[1].data_type == data_types::f8e8m0;
+        if (is_dyn_quan_output) {
+            _attrs->set_scales(DNNL_ARG_DST, grouped, {1, 32}, dnnl::memory::data_type::e8m0, false, dnnl::quantization_mode::dynamic_mx);
+        }
+
         auto prim_desc = get_matmul_primitive_descriptor(*impl_params, ib.get_engine(), input_size, weights_rank, has_bias, *_attrs);
         _pd = *prim_desc;
 
@@ -356,6 +369,16 @@ public:
         dnnl::memory::data_type dzp_data_type = dnnl::memory::data_type::undef;
         int idx = !arg.bias_term() ? 1 : 2;
 
+        const auto output_layouts = impl_params.output_layouts;
+        const bool is_mxfp_dyn_quan_output = output_layouts.size() == 2 &&
+                                             cldnn::one_of(output_layouts[0].data_type, {data_types::f8e4m3, data_types::f8e5m2}) &&
+                                             output_layouts[1].data_type == data_types::f8e8m0;
+        const int grouped = (1 << prim->input_size) - 1;
+
+        if (is_mxfp_dyn_quan_output) {
+            attr->set_scales(DNNL_ARG_DST, grouped, {1, 32}, dnnl::memory::data_type::e8m0, false, dnnl::quantization_mode::dynamic_mx);
+        }
+
         if (prim->compressed_weights) {
             const auto input_dt = impl_params.get_input_layout(0).data_type;
             const bool is_dyn_quan_input = cldnn::one_of(input_dt, {data_types::i8, data_types::u8, data_types::f4e2m1, data_types::f8e4m3, data_types::f8e5m2});
@@ -372,7 +395,6 @@ public:
             OPENVINO_ASSERT(weight_rank <= 3, "Currently only weights with equal to or less than 3D is supported");
             auto shift_size = std::max<size_t>(prim->input_size - 2, 0);
             int per_oc = PER_OC << shift_size;
-            int grouped = (1 << prim->input_size) - 1;
 
             if (prim->decompression_scale.is_valid()) {
                 auto decompression_scale_idx = ++idx;
