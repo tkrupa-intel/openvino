@@ -127,7 +127,7 @@ public:
     }
 
 protected:
-    std::shared_ptr<ov::Model> init_subgraph(const ov::PartialShape& data_shape,
+    virtual std::shared_ptr<ov::Model> init_subgraph(const ov::PartialShape& data_shape,
                                               const ov::Shape& weights_shape,
                                               const int group_size,
                                               const ov::element::Type data_precision,
@@ -261,6 +261,66 @@ TEST_P(MatmulWeightsDecompression, Inference) {
         }
     }
     SKIP_IF_CURRENT_TEST_IS_DISABLED(); // This is necessary because of check_results
+    run();
+    check_results();
+}
+
+// Two matmuls are necessary to test Matmul + Dynamic Quantization fusion.
+// After transformations we expect:
+// Dynamic Quantization -> [fused Matmul + Dynamic Quantization] -> Matmul
+class MatmulWeightsDecompressionTwoMatmuls : public MatmulWeightsDecompression {
+protected:
+    std::shared_ptr<ov::Model> init_subgraph(const ov::PartialShape& data_shape,
+                                              const ov::Shape& weights_shape,
+                                              const int group_size,
+                                              const ov::element::Type data_precision,
+                                              const ov::element::Type weights_precision,
+                                              const ov::element::Type scale_precision,
+                                              const bool transpose_weights,
+                                              const ov::test::utils::DecompressionType decompression_subtract_type,
+                                              const bool reshape_on_decompression,
+                                              const bool extra_multiply,
+                                              const bool param_weight) override {
+        ov::ParameterVector params{std::make_shared<ov::op::v0::Parameter>(data_precision, data_shape)};
+        const auto decompression_multiply_type = ov::test::utils::DecompressionType::full;
+        const std::optional<bool> insert_transpose_node = std::nullopt;
+        const int seed = 1;
+        const auto weights_subgraph = ov::test::utils::initMatMulDecompressionSubgraph(weights_shape,
+                                                                                       group_size,
+                                                                                       data_precision,
+                                                                                       weights_precision,
+                                                                                       data_precision,
+                                                                                       scale_precision,
+                                                                                       transpose_weights,
+                                                                                       decompression_multiply_type,
+                                                                                       decompression_subtract_type,
+                                                                                       reshape_on_decompression,
+                                                                                       insert_transpose_node,
+                                                                                       seed,
+                                                                                       extra_multiply,
+                                                                                       param_weight);
+        auto mat_mul = std::make_shared<ov::op::v0::MatMul>(params[0], weights_subgraph);
+        const auto weights_subgraph2 = ov::test::utils::initMatMulDecompressionSubgraph(weights_shape,
+                                                                                        group_size,
+                                                                                        data_precision,
+                                                                                        weights_precision,
+                                                                                        data_precision,
+                                                                                        scale_precision,
+                                                                                        transpose_weights,
+                                                                                        decompression_multiply_type,
+                                                                                        decompression_subtract_type,
+                                                                                        reshape_on_decompression,
+                                                                                        insert_transpose_node,
+                                                                                        seed,
+                                                                                        extra_multiply,
+                                                                                        param_weight);
+        auto mat_mul2 = std::make_shared<ov::op::v0::MatMul>(mat_mul->output(0), weights_subgraph2);
+        return std::make_shared<ov::Model>(ov::OutputVector{mat_mul2}, params, "MatmulWeightsDecompression");
+    }
+};
+
+TEST_P(MatmulWeightsDecompressionTwoMatmuls, Inference) {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED();
     run();
     check_results();
 }
@@ -580,4 +640,37 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_input_4d,
                                             ::testing::Values(0),
                                             ::testing::Values(1.0f)),
                          MatmulWeightsDecompression::get_test_case_name);
+
+INSTANTIATE_TEST_SUITE_P(
+    smoke_MatMulCompressedWeightsTwoMatmuls_dyn_quan_mxfp8_e4m3,
+    MatmulWeightsDecompressionTwoMatmuls,
+    ::testing::Combine(::testing::Values(ShapeParams{{{-1, 64, 64}, {{1, 64, 64}, {8, 64, 64}}}, {64, 64}, 32}),  // shape
+                       ::testing::Values(ov::element::f8e4m3),
+                       ::testing::Values(ov::element::f16),
+                       ::testing::Values(ov::element::f8e8m0),
+                       ::testing::Values(true),
+                       ::testing::Values(ov::test::utils::DecompressionType::empty),
+                       ::testing::Values(false),
+                       ::testing::Values(false),
+                       ::testing::Values(false),
+                       ::testing::Values(32),
+                       ::testing::Values(0.3f)),
+    MatmulWeightsDecompression::get_test_case_name);
+
+INSTANTIATE_TEST_SUITE_P(
+    smoke_MatMulCompressedWeightsTwoMatmuls_dyn_quan_mxfp8_e5m2,
+    MatmulWeightsDecompressionTwoMatmuls,
+    ::testing::Combine(::testing::Values(ShapeParams{{{-1, 64, 64}, {{1, 64, 64}, {8, 64, 64}}}, {64, 64}, 32}),  // shape
+                       ::testing::Values(ov::element::f8e5m2),
+                       ::testing::Values(ov::element::f16),
+                       ::testing::Values(ov::element::f8e8m0),
+                       ::testing::Values(true),
+                       ::testing::Values(ov::test::utils::DecompressionType::empty),
+                       ::testing::Values(false),
+                       ::testing::Values(false),
+                       ::testing::Values(false),
+                       ::testing::Values(32),
+                       ::testing::Values(0.3f)),
+    MatmulWeightsDecompression::get_test_case_name);
+
 } // namespace
