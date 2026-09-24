@@ -6,6 +6,7 @@
 #include "random_generator.hpp"
 #include "opencl_helper_instance.hpp"
 #include "ocl/ocl_device.hpp"
+#include "runtime/ocl/ocl_stream.hpp"
 #include <ocl/ocl_wrapper.hpp>
 
 #include <intel_gpu/primitives/input_layout.hpp>
@@ -334,7 +335,7 @@ TEST(reorder_gpu_optimization, reorder_data_fp8_direct_byte_values) {
         };
         auto config = get_test_default_config(engine);
         config.set_property(ov::intel_gpu::force_implementations(
-            ov::intel_gpu::ImplForcingMap{{"reorder", {format::bfyx, "reorder_data", impl_types::ocl}}}}));
+            ov::intel_gpu::ImplForcingMap{{"reorder", {format::bfyx, "reorder_data", impl_types::ocl}}}));
         network network(engine, topology, config);
         network.set_input_data("input", input);
         auto outputs = network.execute();
@@ -355,23 +356,25 @@ static void compare_biplanar_nv12_with_ref(data_types data_type) {
     constexpr size_t height = 2;
     std::vector<uint8_t> data(width * height + width * height / 2);
     std::iota(data.begin(), data.end(), uint8_t(1));
-    auto ocl_instance = engine.get_ocl_instance();
+    auto& ocl_stream = dynamic_cast<ocl::ocl_stream&>(get_test_stream());
+    auto context_handle = static_cast<cl_context>(engine.get_user_context(runtime_types::ocl));
+    auto cl_queue = ocl_stream.get_cl_queue().get();
     cl_int err = CL_SUCCESS;
     cl_image_format image_format = {CL_R, CL_UNORM_INT8};
     cl_image_desc image_desc = {CL_MEM_OBJECT_IMAGE2D, width, height, 1, 1, 0, 0, 0, 0, 0};
-    cl_mem image_y = clCreateImage(ocl_instance->_context.get(), CL_MEM_READ_WRITE, &image_format, &image_desc, nullptr, &err);
+    cl_mem image_y = clCreateImage(context_handle, CL_MEM_READ_WRITE, &image_format, &image_desc, nullptr, &err);
     checkStatus(err, "Creating NV12 Y image failed");
     image_format.image_channel_order = CL_RG;
     image_desc.image_width = width / 2;
     image_desc.image_height = height / 2;
-    cl_mem image_uv = clCreateImage(ocl_instance->_context.get(), CL_MEM_READ_WRITE, &image_format, &image_desc, nullptr, &err);
+    cl_mem image_uv = clCreateImage(context_handle, CL_MEM_READ_WRITE, &image_format, &image_desc, nullptr, &err);
     checkStatus(err, "Creating NV12 UV image failed");
     size_t origin[3] = {0, 0, 0};
     size_t y_region[3] = {width, height, 1};
     size_t uv_region[3] = {width / 2, height / 2, 1};
-    err = clEnqueueWriteImage(ocl_instance->_queue.get(), image_y, true, origin, y_region, 0, 0, data.data(), 0, nullptr, nullptr);
+    err = clEnqueueWriteImage(cl_queue, image_y, true, origin, y_region, 0, 0, data.data(), 0, nullptr, nullptr);
     checkStatus(err, "Writing NV12 Y image failed");
-    err = clEnqueueWriteImage(ocl_instance->_queue.get(), image_uv, true, origin, uv_region, 0, 0, data.data() + width * height, 0, nullptr, nullptr);
+    err = clEnqueueWriteImage(cl_queue, image_uv, true, origin, uv_region, 0, 0, data.data() + width * height, 0, nullptr, nullptr);
     checkStatus(err, "Writing NV12 UV image failed");
     auto input = input_layout("input", {{1, height, width, 1}, data_type, format::nv12});
     auto input2 = input_layout("input2", {{1, height / 2, width / 2, 2}, data_type, format::nv12});
