@@ -17,6 +17,7 @@
 #include "openvino/op/reshape.hpp"
 #include "openvino/op/result.hpp"
 #include "openvino/op/subtract.hpp"
+#include "openvino/op/swish.hpp"
 #include "openvino/op/transpose.hpp"
 #include "shared_test_classes/base/ov_subgraph.hpp"
 #include "transformations/rt_info/decompression.hpp"
@@ -300,7 +301,17 @@ protected:
                                                                                        extra_multiply,
                                                                                        param_weight);
         auto mat_mul = std::make_shared<ov::op::v0::MatMul>(params[0], weights_subgraph);
-        const auto weights_subgraph2 = ov::test::utils::initMatMulDecompressionSubgraph(weights_shape,
+        auto const1_tensor =
+             ov::test::utils::create_and_fill_tensor(data_precision,
+                                                     {1, 14336});
+        auto const1 = std::make_shared<ov::op::v0::Constant>(const1_tensor);
+        auto const2_tensor =
+             ov::test::utils::create_and_fill_tensor(data_precision,
+                                                     {1, 14336});
+        auto const2 = std::make_shared<ov::op::v0::Constant>(const2_tensor);
+        const auto eltwise_swish = std::make_shared<ov::op::v4::Swish>(const1);
+        const auto binary_mul = std::make_shared<ov::op::v1::Multiply>(eltwise_swish, const2);
+        const auto weights_subgraph2 = ov::test::utils::initMatMulDecompressionSubgraph({14336, 32},
                                                                                         group_size,
                                                                                         data_precision,
                                                                                         weights_precision,
@@ -314,7 +325,7 @@ protected:
                                                                                         seed,
                                                                                         extra_multiply,
                                                                                         param_weight);
-        auto mat_mul2 = std::make_shared<ov::op::v0::MatMul>(mat_mul->output(0), weights_subgraph2);
+        auto mat_mul2 = std::make_shared<ov::op::v0::MatMul>(binary_mul->output(0), weights_subgraph2);
         return std::make_shared<ov::Model>(ov::OutputVector{mat_mul2}, params, "MatmulWeightsDecompression");
     }
 };
@@ -644,7 +655,7 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_input_4d,
 INSTANTIATE_TEST_SUITE_P(
     smoke_MatMulCompressedWeightsTwoMatmuls_dyn_quan_mxfp8_e4m3,
     MatmulWeightsDecompressionTwoMatmuls,
-    ::testing::Combine(::testing::Values(ShapeParams{{{-1, 64, 64}, {{1, 64, 64}, {8, 64, 64}}}, {64, 64}, 32}),  // shape
+    ::testing::Combine(::testing::Values(ShapeParams{{{-1, -1, 4096}, {{1, 1, 4096}, {8, 1, 4096}}}, {4096, 14336}, 32}),  // shape
                        ::testing::Values(ov::element::f8e4m3),
                        ::testing::Values(ov::element::f16),
                        ::testing::Values(ov::element::f8e8m0),
@@ -660,7 +671,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     smoke_MatMulCompressedWeightsTwoMatmuls_dyn_quan_mxfp8_e5m2,
     MatmulWeightsDecompressionTwoMatmuls,
-    ::testing::Combine(::testing::Values(ShapeParams{{{-1, 64, 64}, {{1, 64, 64}, {8, 64, 64}}}, {64, 64}, 32}),  // shape
+    ::testing::Combine(::testing::Values(ShapeParams{{{-1, -1, 4096}, {{1, 1, 4096}, {8, 1, 4096}}}, {4096, 14336}, 32}),  // shape
                        ::testing::Values(ov::element::f8e5m2),
                        ::testing::Values(ov::element::f16),
                        ::testing::Values(ov::element::f8e8m0),
