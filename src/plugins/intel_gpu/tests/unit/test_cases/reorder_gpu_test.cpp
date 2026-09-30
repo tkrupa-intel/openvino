@@ -401,35 +401,6 @@ TEST(reorder_gpu_optimization, compare_biplanar_nv12_with_ref__fp8) {
         compare_biplanar_nv12_with_ref(data_type);
 }
 
-static void compare_from_winograd_2x3_with_ref(data_types data_type) {
-    auto& engine = get_test_engine();
-    layout input_layout_desc(data_type, format::winograd_2x3_s1_data, {1, 1, 4, 1});
-    layout output_layout(data_type, format::bfyx, {1, 1, 2, 1});
-    auto input = engine.allocate_memory(input_layout_desc);
-    mem_lock<uint8_t> input_ptr(input, get_test_stream());
-    std::iota(input_ptr.begin(), input_ptr.end(), uint8_t(1));
-    auto run = [&](const std::string& kernel_name) {
-        topology topology {
-            input_layout("input", input_layout_desc),
-            reorder("reorder", input_info("input"), output_layout)
-        };
-        auto config = get_test_default_config(engine);
-        config.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{{"reorder", {format::bfyx, kernel_name, impl_types::ocl}}}));
-        network network(engine, topology, config);
-        network.set_input_data("input", input);
-        return network.execute();
-    };
-    auto optimized = run("reorder_from_winograd_2x3_s1");
-    auto reference = run("reorder_data");
-    compare_result<uint8_t>(reference, optimized);
-}
-
-TEST(reorder_gpu_optimization, compare_from_winograd_2x3_with_ref__fp8) {
-    const data_types fp8_types[] = {data_types::f8e4m3, data_types::f8e5m2, data_types::f8e8m0};
-    for (const auto data_type : fp8_types)
-        compare_from_winograd_2x3_with_ref(data_type);
-}
-
 static void compare_bfyx2blocked_with_ref_dynamic(const std::string& kernel_name,
     const data_types input_data_type, const data_types output_data_type,
     cldnn::format input_format, cldnn::format output_format,
@@ -3571,10 +3542,6 @@ static void compare_fp8_weights_with_ref(data_types data_type, format input_form
 
 TEST_FP8_WEIGHT_REORDER(reorder_weights_kernel, format::bfyx, format::os_iyx_osv16, "reorder_weights_opt", "reorder_weights")
 TEST_FP8_WEIGHT_REORDER(reorder_weights_image_fyx_b, format::oiyx, format::image_2d_weights_c4_fyx_b, "reorder_weights_image_2d_c4_fyx_b", "reorder_weights")
-TEST_FP8_WEIGHT_REORDER(reorder_weights_winograd_2x3, format::oiyx, format::winograd_2x3_s1_weights, "reorder_weights_winograd_2x3_s1", "reorder_weights")
-TEST_FP8_WEIGHT_REORDER(reorder_weights_winograd_6x3, format::oiyx, format::winograd_6x3_s1_fused_weights, "reorder_weights_winograd_6x3_s1", "reorder_weights")
-TEST_FP8_WEIGHT_REORDER(reorder_weights_image_winograd_6x3_fbxyb, format::oiyx, format::image_2d_weights_winograd_6x3_s1_fbxyb, "reorder_weights_image_winograd_6x3_s1", "reorder_weights")
-TEST_FP8_WEIGHT_REORDER(reorder_weights_image_winograd_6x3_xfbyb, format::oiyx, format::image_2d_weights_winograd_6x3_s1_xfbyb, "reorder_weights_image_winograd_6x3_s1", "reorder_weights")
 
 static void reorder_weights_gpu_mxfp8(data_types data_type) {
     auto& engine = get_test_engine();

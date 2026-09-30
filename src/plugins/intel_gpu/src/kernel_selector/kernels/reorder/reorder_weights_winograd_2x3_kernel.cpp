@@ -10,14 +10,8 @@ ParamsKey ReorderWeightsWinograd2x3Kernel::GetSupportedKey() const {
     ParamsKey k;
     k.EnableInputWeightsType(WeightsType::F16);
     k.EnableInputWeightsType(WeightsType::F32);
-    k.EnableInputWeightsType(WeightsType::F8E4M3);
-    k.EnableInputWeightsType(WeightsType::F8E5M2);
-    k.EnableInputWeightsType(WeightsType::F8E8M0);
     k.EnableOutputWeightsType(WeightsType::F16);
     k.EnableOutputWeightsType(WeightsType::F32);
-    k.EnableOutputWeightsType(WeightsType::F8E4M3);
-    k.EnableOutputWeightsType(WeightsType::F8E5M2);
-    k.EnableOutputWeightsType(WeightsType::F8E8M0);
     k.EnableAllInputWeightsLayout();
     k.EnableOutputWeightsLayout(WeightsLayout::winograd_2x3_s1_weights);
     k.EnableOutputWeightsLayout(WeightsLayout::winograd_2x3_s1_fused_weights);
