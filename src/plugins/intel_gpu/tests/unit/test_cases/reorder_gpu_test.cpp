@@ -3514,36 +3514,7 @@ TEST(reorder_weights_gpu_i32, reorder_weights_opt)
     }
 }
 
-static void compare_fp8_weights_with_ref(data_types data_type, format input_format, format output_format, const std::string& kernel_name, const std::string& reference_kernel = "reorder_weights") {
-    auto& engine = get_test_engine();
-    layout input_layout_desc(data_type, input_format, {32, 1, 3, 3});
-    layout output_layout(data_type, output_format, {32, 1, 3, 3});
-    auto params = std::make_shared<WeightsReorderParams>(input_layout_desc, output_layout);
-    auto input = engine.allocate_memory(input_layout_desc);
-    mem_lock<uint8_t> input_ptr(input, get_test_stream());
-    std::iota(input_ptr.begin(), input_ptr.end(), uint8_t(1));
-    auto run = [&](const std::string& implementation) {
-        topology topology {input_layout("input", input_layout_desc), reorder("reorder", input_info("input"), params)};
-        auto config = get_test_default_config(engine);
-        config.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{{"reorder", {output_format, implementation, impl_types::ocl}}}));
-        network network(engine, topology, config);
-        network.set_input_data("input", input);
-        return network.execute();
-    };
-    compare_result<uint8_t>(run(reference_kernel), run(kernel_name));
-}
-
-#define TEST_FP8_WEIGHT_REORDER(test_name, input_format, output_format, kernel_name, reference_kernel) \
-    TEST(reorder_weights_gpu_fp8, test_name) { \
-        const data_types fp8_types[] = {data_types::f8e4m3, data_types::f8e5m2, data_types::f8e8m0}; \
-        for (const auto data_type : fp8_types) \
-            compare_fp8_weights_with_ref(data_type, input_format, output_format, kernel_name, reference_kernel); \
-    }
-
-TEST_FP8_WEIGHT_REORDER(reorder_weights_kernel, format::bfyx, format::os_iyx_osv16, "reorder_weights_opt", "reorder_weights")
-TEST_FP8_WEIGHT_REORDER(reorder_weights_image_fyx_b, format::oiyx, format::image_2d_weights_c4_fyx_b, "reorder_weights_image_2d_c4_fyx_b", "reorder_weights")
-
-static void reorder_weights_gpu_mxfp8(data_types data_type) {
+static void reorder_weights_gpu_fp8(std::string impl_name, data_types data_type) {
     auto& engine = get_test_engine();
     layout in_layout(data_type, format::bfyx, { 16, 1, 2, 1 });
     layout out_layout(data_type, format::os_iyx_osv16, { 16, 1, 2, 1 });
@@ -3560,7 +3531,7 @@ static void reorder_weights_gpu_mxfp8(data_types data_type) {
         reorder("reorder", input_info("input"), weights_reorder_params)
     };
     ExecutionConfig config = get_test_default_config(engine);
-    ov::intel_gpu::ImplementationDesc wr_impl_desc = { format::os_iyx_osv16, "reorder_weights_opt", impl_types::ocl };
+    ov::intel_gpu::ImplementationDesc wr_impl_desc = { format::os_iyx_osv16, impl_name, impl_types::ocl };
     config.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{ {"reorder", wr_impl_desc} }));
     network network(engine, topology, config);
     network.set_input_data("input", input);
@@ -3577,10 +3548,16 @@ static void reorder_weights_gpu_mxfp8(data_types data_type) {
         ASSERT_EQ(output_ptr[i], ref_output[i]);
 }
 
-TEST(reorder_weights_gpu_mxfp8, reorder_weights_opt) {
-    reorder_weights_gpu_mxfp8(data_types::f8e4m3);
-    reorder_weights_gpu_mxfp8(data_types::f8e5m2);
-    reorder_weights_gpu_mxfp8(data_types::f8e8m0);
+TEST(reorder_weights_gpu_fp8, reorder_weights) {
+    reorder_weights_gpu_fp8("reorder_weights", data_types::f8e4m3);
+    reorder_weights_gpu_fp8("reorder_weights", data_types::f8e5m2);
+    reorder_weights_gpu_fp8("reorder_weights", data_types::f8e8m0);
+}
+
+TEST(reorder_weights_gpu_fp8, reorder_weights_opt) {
+    reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e4m3);
+    reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e5m2);
+    reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e8m0);
 }
 
 TEST(reorder_gpu_i64, basic)

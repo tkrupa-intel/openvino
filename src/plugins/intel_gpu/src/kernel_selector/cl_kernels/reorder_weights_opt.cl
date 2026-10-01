@@ -13,6 +13,12 @@
 #include "include/f4_utils.cl"
 #endif
 
+#if F8E8M0_OUTPUT
+    #define INVALID_LANE_VAL OUTPUT_VAL_MIN
+#else
+    #define INVALID_LANE_VAL OUTPUT_VAL_ZERO
+#endif
+
 #include "include/batch_headers/common.cl"
 
 INIT_INPUT0_INDEX_FUNC_HERE
@@ -122,10 +128,10 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
     if (ifm_valid && valid_lane) {
         val = TO_OUTPUT_TYPE(input[input_idx]);
     } else {
-        val = OUTPUT_VAL_ZERO;
+        val = INVALID_LANE_VAL;
     }
 #else
-    val = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
+    val = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : INVALID_LANE_VAL;
 #endif
 #else
     OUTPUT_VEC_TYPE val = 0;
@@ -135,7 +141,7 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
             val[b] = TO_OUTPUT_TYPE(input[input_idx]);
         }
 #else
-        val[b] = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
+        val[b] = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : INVALID_LANE_VAL;
 #endif
         input_idx += PITCH;
     }
