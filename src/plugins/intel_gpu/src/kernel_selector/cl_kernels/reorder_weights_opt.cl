@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#define IS_FP8 (F8E5M2_INPUT || F8E4M3_INPUT || F8E8M0_INPUT || F8E5M2_OUTPUT || F8E4M3_OUTPUT || F8E8M0_OUTPUT)
 #define IS_FP4 (F4E2M1_INPUT || F4E2M1_OUTPUT)
 
-#if (IS_FP8 || IS_FP4)
+#if (INPUT0_IS_F8 || OUTPUT_IS_F8 || IS_FP4)
 #include "include/f8_utils.cl"
 #endif
 
@@ -14,7 +13,7 @@
 #endif
 
 #if F8E8M0_OUTPUT
-    #define INVALID_LANE_VAL OUTPUT_VAL_MIN
+    #define INVALID_LANE_VAL OUTPUT_VAL_MAX
 #else
     #define INVALID_LANE_VAL OUTPUT_VAL_ZERO
 #endif

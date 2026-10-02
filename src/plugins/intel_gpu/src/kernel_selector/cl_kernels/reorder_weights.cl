@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if F8E5M2_INPUT || F8E4M3_INPUT || F8E8M0_INPUT || F8E5M2_OUTPUT || F8E4M3_OUTPUT || F8E8M0_OUTPUT
+#if INPUT0_IS_F8 || OUTPUT_IS_F8
 #include "include/f8_utils.cl"
 #endif
 
@@ -581,6 +581,12 @@ KERNEL (reorder_weights)(const __global INPUT0_TYPE* input, __global OUTPUT_TYPE
 #endif
 #ifdef BF16_INPUT
     output[output_idx] = TO_OUTPUT_TYPE(_convert_as_bfloat16_float(input[input_idx]));
+#elif F8E4M3_INPUT
+    output[output_idx] = TO_OUTPUT_TYPE(_intel_convert_hf8_to_f16(input[input_idx]));
+#elif F8E5M2_INPUT
+    output[output_idx] = TO_OUTPUT_TYPE(_intel_convert_bf8_to_f16(input[input_idx]));
+#elif F8E8M0_INPUT
+    output[output_idx] = TO_OUTPUT_TYPE(_intel_convert_e8m0_to_f32(input[input_idx]));
 #else
     output[output_idx] = TO_OUTPUT_TYPE(input[input_idx]);
 #endif

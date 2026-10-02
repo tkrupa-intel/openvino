@@ -5,7 +5,7 @@
 // Converts between b_fs_{yx,zyx}_fsv{4,8,16,32} formats with different fsv sizes.
 // Both input and output are blocked only on the feature dimension.
 
-#if F8E5M2_INPUT || F8E4M3_INPUT || F8E8M0_INPUT || F8E5M2_OUTPUT || F8E4M3_OUTPUT || F8E8M0_OUTPUT
+#if INPUT0_IS_F8 || OUTPUT_IS_F8
 #include "include/f8_utils.cl"
 #endif
 

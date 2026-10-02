@@ -138,13 +138,13 @@ half _intel_convert_hf8_to_f16(char val) {
     return temp_fp16;
 }
 
-uchar _intel_convert_f32_fo_e8m0(float val) {
+uchar _intel_convert_f32_to_e8m0(float val) {
     uint val_uint = as_uint(val);
     return (uchar)((val_uint >> 23) & 0xFF);
 }
 
-uchar _intel_convert_f32_fo_e8m0_sat(float val) {
-    return _intel_convert_f32_fo_e8m0(val);
+uchar _intel_convert_f32_to_e8m0_sat(float val) {
+    return _intel_convert_f32_to_e8m0(val);
 }
 
 float _intel_convert_e8m0_to_f32(uchar val) {
@@ -884,129 +884,129 @@ fp8e8m0_t __attribute__((overloadable)) _convert_fp8e8m0_t(fp8e8m0_t val) {
 
 fp8e8m0_t __attribute__((overloadable)) _convert_fp8e8m0_t(float val) {
     fp8e8m0_t res;
-    res.data = _intel_convert_f32_fo_e8m0(val);
+    res.data = _intel_convert_f32_to_e8m0(val);
     return res;
 }
 fp8e8m0_t1 __attribute__((overloadable)) _convert_fp8e8m0_t1(float val[1]) {
     fp8e8m0_t1 res;
-    res.data = _intel_convert_f32_fo_e8m0(val[0]);
+    res.data = _intel_convert_f32_to_e8m0(val[0]);
     return res;
 }
 fp8e8m0_t2 __attribute__((overloadable)) _convert_fp8e8m0_t2(float2 val) {
     fp8e8m0_t2 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0(val.y);
+    res.data.s0 = _intel_convert_f32_to_e8m0(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0(val.y);
     return res;
 }
 fp8e8m0_t3 __attribute__((overloadable)) _convert_fp8e8m0_t3(float3 val) {
     fp8e8m0_t3 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0(val.y);
-    res.data.s2 = _intel_convert_f32_fo_e8m0(val.z);
+    res.data.s0 = _intel_convert_f32_to_e8m0(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0(val.y);
+    res.data.s2 = _intel_convert_f32_to_e8m0(val.z);
     return res;
 }
 fp8e8m0_t4 __attribute__((overloadable)) _convert_fp8e8m0_t4(float4 val) {
     fp8e8m0_t4 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0(val.y);
-    res.data.s2 = _intel_convert_f32_fo_e8m0(val.z);
-    res.data.s3 = _intel_convert_f32_fo_e8m0(val.w);
+    res.data.s0 = _intel_convert_f32_to_e8m0(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0(val.y);
+    res.data.s2 = _intel_convert_f32_to_e8m0(val.z);
+    res.data.s3 = _intel_convert_f32_to_e8m0(val.w);
     return res;
 }
 fp8e8m0_t8 __attribute__((overloadable)) _convert_fp8e8m0_t8(float8 val) {
     fp8e8m0_t8 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0(val.s0);
-    res.data.s1 = _intel_convert_f32_fo_e8m0(val.s1);
-    res.data.s2 = _intel_convert_f32_fo_e8m0(val.s2);
-    res.data.s3 = _intel_convert_f32_fo_e8m0(val.s3);
-    res.data.s4 = _intel_convert_f32_fo_e8m0(val.s4);
-    res.data.s5 = _intel_convert_f32_fo_e8m0(val.s5);
-    res.data.s6 = _intel_convert_f32_fo_e8m0(val.s6);
-    res.data.s7 = _intel_convert_f32_fo_e8m0(val.s7);
+    res.data.s0 = _intel_convert_f32_to_e8m0(val.s0);
+    res.data.s1 = _intel_convert_f32_to_e8m0(val.s1);
+    res.data.s2 = _intel_convert_f32_to_e8m0(val.s2);
+    res.data.s3 = _intel_convert_f32_to_e8m0(val.s3);
+    res.data.s4 = _intel_convert_f32_to_e8m0(val.s4);
+    res.data.s5 = _intel_convert_f32_to_e8m0(val.s5);
+    res.data.s6 = _intel_convert_f32_to_e8m0(val.s6);
+    res.data.s7 = _intel_convert_f32_to_e8m0(val.s7);
     return res;
 }
 fp8e8m0_t16 __attribute__((overloadable)) _convert_fp8e8m0_t16(float16 val) {
     fp8e8m0_t16 res;
-    res.data.s0  = _intel_convert_f32_fo_e8m0(val.s0);
-    res.data.s1  = _intel_convert_f32_fo_e8m0(val.s1);
-    res.data.s2  = _intel_convert_f32_fo_e8m0(val.s2);
-    res.data.s3  = _intel_convert_f32_fo_e8m0(val.s3);
-    res.data.s4  = _intel_convert_f32_fo_e8m0(val.s4);
-    res.data.s5  = _intel_convert_f32_fo_e8m0(val.s5);
-    res.data.s6  = _intel_convert_f32_fo_e8m0(val.s6);
-    res.data.s7  = _intel_convert_f32_fo_e8m0(val.s7);
-    res.data.s8  = _intel_convert_f32_fo_e8m0(val.s8);
-    res.data.s9  = _intel_convert_f32_fo_e8m0(val.s9);
-    res.data.sA = _intel_convert_f32_fo_e8m0(val.sA);
-    res.data.sB = _intel_convert_f32_fo_e8m0(val.sB);
-    res.data.sC = _intel_convert_f32_fo_e8m0(val.sC);
-    res.data.sD = _intel_convert_f32_fo_e8m0(val.sD);
-    res.data.sE = _intel_convert_f32_fo_e8m0(val.sE);
-    res.data.sF = _intel_convert_f32_fo_e8m0(val.sF);
+    res.data.s0  = _intel_convert_f32_to_e8m0(val.s0);
+    res.data.s1  = _intel_convert_f32_to_e8m0(val.s1);
+    res.data.s2  = _intel_convert_f32_to_e8m0(val.s2);
+    res.data.s3  = _intel_convert_f32_to_e8m0(val.s3);
+    res.data.s4  = _intel_convert_f32_to_e8m0(val.s4);
+    res.data.s5  = _intel_convert_f32_to_e8m0(val.s5);
+    res.data.s6  = _intel_convert_f32_to_e8m0(val.s6);
+    res.data.s7  = _intel_convert_f32_to_e8m0(val.s7);
+    res.data.s8  = _intel_convert_f32_to_e8m0(val.s8);
+    res.data.s9  = _intel_convert_f32_to_e8m0(val.s9);
+    res.data.sA = _intel_convert_f32_to_e8m0(val.sA);
+    res.data.sB = _intel_convert_f32_to_e8m0(val.sB);
+    res.data.sC = _intel_convert_f32_to_e8m0(val.sC);
+    res.data.sD = _intel_convert_f32_to_e8m0(val.sD);
+    res.data.sE = _intel_convert_f32_to_e8m0(val.sE);
+    res.data.sF = _intel_convert_f32_to_e8m0(val.sF);
     return res;
 }
 
 fp8e8m0_t __attribute__((overloadable)) _convert_fp8e8m0_t_sat(float val) {
     fp8e8m0_t res;
-    res.data = _intel_convert_f32_fo_e8m0_sat(val);
+    res.data = _intel_convert_f32_to_e8m0_sat(val);
     return res;
 }
 fp8e8m0_t1 __attribute__((overloadable)) _convert_fp8e8m0_t1_sat(float val[1]) {
     fp8e8m0_t1 res;
-    res.data = _intel_convert_f32_fo_e8m0_sat(val[0]);
+    res.data = _intel_convert_f32_to_e8m0_sat(val[0]);
     return res;
 }
 fp8e8m0_t2 __attribute__((overloadable)) _convert_fp8e8m0_t2_sat(float2 val) {
     fp8e8m0_t2 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0_sat(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0_sat(val.y);
+    res.data.s0 = _intel_convert_f32_to_e8m0_sat(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0_sat(val.y);
     return res;
 }
 fp8e8m0_t3 __attribute__((overloadable)) _convert_fp8e8m0_t3_sat(float3 val) {
     fp8e8m0_t3 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0_sat(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0_sat(val.y);
-    res.data.s2 = _intel_convert_f32_fo_e8m0_sat(val.z);
+    res.data.s0 = _intel_convert_f32_to_e8m0_sat(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0_sat(val.y);
+    res.data.s2 = _intel_convert_f32_to_e8m0_sat(val.z);
     return res;
 }
 fp8e8m0_t4 __attribute__((overloadable)) _convert_fp8e8m0_t4_sat(float4 val) {
     fp8e8m0_t4 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0_sat(val.x);
-    res.data.s1 = _intel_convert_f32_fo_e8m0_sat(val.y);
-    res.data.s2 = _intel_convert_f32_fo_e8m0_sat(val.z);
-    res.data.s3 = _intel_convert_f32_fo_e8m0_sat(val.w);
+    res.data.s0 = _intel_convert_f32_to_e8m0_sat(val.x);
+    res.data.s1 = _intel_convert_f32_to_e8m0_sat(val.y);
+    res.data.s2 = _intel_convert_f32_to_e8m0_sat(val.z);
+    res.data.s3 = _intel_convert_f32_to_e8m0_sat(val.w);
     return res;
 }
 fp8e8m0_t8 __attribute__((overloadable)) _convert_fp8e8m0_t8_sat(float8 val) {
     fp8e8m0_t8 res;
-    res.data.s0 = _intel_convert_f32_fo_e8m0_sat(val.s0);
-    res.data.s1 = _intel_convert_f32_fo_e8m0_sat(val.s1);
-    res.data.s2 = _intel_convert_f32_fo_e8m0_sat(val.s2);
-    res.data.s3 = _intel_convert_f32_fo_e8m0_sat(val.s3);
-    res.data.s4 = _intel_convert_f32_fo_e8m0_sat(val.s4);
-    res.data.s5 = _intel_convert_f32_fo_e8m0_sat(val.s5);
-    res.data.s6 = _intel_convert_f32_fo_e8m0_sat(val.s6);
-    res.data.s7 = _intel_convert_f32_fo_e8m0_sat(val.s7);
+    res.data.s0 = _intel_convert_f32_to_e8m0_sat(val.s0);
+    res.data.s1 = _intel_convert_f32_to_e8m0_sat(val.s1);
+    res.data.s2 = _intel_convert_f32_to_e8m0_sat(val.s2);
+    res.data.s3 = _intel_convert_f32_to_e8m0_sat(val.s3);
+    res.data.s4 = _intel_convert_f32_to_e8m0_sat(val.s4);
+    res.data.s5 = _intel_convert_f32_to_e8m0_sat(val.s5);
+    res.data.s6 = _intel_convert_f32_to_e8m0_sat(val.s6);
+    res.data.s7 = _intel_convert_f32_to_e8m0_sat(val.s7);
     return res;
 }
 fp8e8m0_t16 __attribute__((overloadable)) _convert_fp8e8m0_t16_sat(float16 val) {
     fp8e8m0_t16 res;
-    res.data.s0  = _intel_convert_f32_fo_e8m0_sat(val.s0);
-    res.data.s1  = _intel_convert_f32_fo_e8m0_sat(val.s1);
-    res.data.s2  = _intel_convert_f32_fo_e8m0_sat(val.s2);
-    res.data.s3  = _intel_convert_f32_fo_e8m0_sat(val.s3);
-    res.data.s4  = _intel_convert_f32_fo_e8m0_sat(val.s4);
-    res.data.s5  = _intel_convert_f32_fo_e8m0_sat(val.s5);
-    res.data.s6  = _intel_convert_f32_fo_e8m0_sat(val.s6);
-    res.data.s7  = _intel_convert_f32_fo_e8m0_sat(val.s7);
-    res.data.s8  = _intel_convert_f32_fo_e8m0_sat(val.s8);
-    res.data.s9  = _intel_convert_f32_fo_e8m0_sat(val.s9);
-    res.data.sA = _intel_convert_f32_fo_e8m0_sat(val.sA);
-    res.data.sB = _intel_convert_f32_fo_e8m0_sat(val.sB);
-    res.data.sC = _intel_convert_f32_fo_e8m0_sat(val.sC);
-    res.data.sD = _intel_convert_f32_fo_e8m0_sat(val.sD);
-    res.data.sE = _intel_convert_f32_fo_e8m0_sat(val.sE);
-    res.data.sF = _intel_convert_f32_fo_e8m0_sat(val.sF);
+    res.data.s0  = _intel_convert_f32_to_e8m0_sat(val.s0);
+    res.data.s1  = _intel_convert_f32_to_e8m0_sat(val.s1);
+    res.data.s2  = _intel_convert_f32_to_e8m0_sat(val.s2);
+    res.data.s3  = _intel_convert_f32_to_e8m0_sat(val.s3);
+    res.data.s4  = _intel_convert_f32_to_e8m0_sat(val.s4);
+    res.data.s5  = _intel_convert_f32_to_e8m0_sat(val.s5);
+    res.data.s6  = _intel_convert_f32_to_e8m0_sat(val.s6);
+    res.data.s7  = _intel_convert_f32_to_e8m0_sat(val.s7);
+    res.data.s8  = _intel_convert_f32_to_e8m0_sat(val.s8);
+    res.data.s9  = _intel_convert_f32_to_e8m0_sat(val.s9);
+    res.data.sA = _intel_convert_f32_to_e8m0_sat(val.sA);
+    res.data.sB = _intel_convert_f32_to_e8m0_sat(val.sB);
+    res.data.sC = _intel_convert_f32_to_e8m0_sat(val.sC);
+    res.data.sD = _intel_convert_f32_to_e8m0_sat(val.sD);
+    res.data.sE = _intel_convert_f32_to_e8m0_sat(val.sE);
+    res.data.sF = _intel_convert_f32_to_e8m0_sat(val.sF);
     return res;
 }
 
@@ -1289,3 +1289,299 @@ uchar16 __attribute__((overloadable)) _as_uchar16(fp8e8m0_t16 val) {
 
 #endif
 
+////////////////////////
+
+inline char2 _convert_fp8e4m3_t2_as_char2(half2 source) {
+    return (char2)(_intel_convert_f16_to_hf8(source.s0),
+                     _intel_convert_f16_to_hf8(source.s1));
+}
+
+inline char3 _convert_fp8e4m3_t3_as_char3(half3 source) {
+    return (char3)(_intel_convert_f16_to_hf8(source.s0),
+                     _intel_convert_f16_to_hf8(source.s1),
+                     _intel_convert_f16_to_hf8(source.s2));
+}
+
+inline char4 _convert_fp8e4m3_t4_as_char4(half4 source) {
+    return (char4)(_intel_convert_f16_to_hf8(source.s0),
+                     _intel_convert_f16_to_hf8(source.s1),
+                     _intel_convert_f16_to_hf8(source.s2),
+                     _intel_convert_f16_to_hf8(source.s3));
+}
+
+inline char8 _convert_fp8e4m3_t8_as_char8(half8 source) {
+    return (char8)(_intel_convert_f16_to_hf8(source.s0),
+                     _intel_convert_f16_to_hf8(source.s1),
+                     _intel_convert_f16_to_hf8(source.s2),
+                     _intel_convert_f16_to_hf8(source.s3),
+                     _intel_convert_f16_to_hf8(source.s4),
+                     _intel_convert_f16_to_hf8(source.s5),
+                     _intel_convert_f16_to_hf8(source.s6),
+                     _intel_convert_f16_to_hf8(source.s7));
+}
+
+inline char16 _convert_fp8e4m3_t16_as_char16(half16 source) {
+    return (char16)(_intel_convert_f16_to_hf8(source.s0),
+                      _intel_convert_f16_to_hf8(source.s1),
+                      _intel_convert_f16_to_hf8(source.s2),
+                      _intel_convert_f16_to_hf8(source.s3),
+                      _intel_convert_f16_to_hf8(source.s4),
+                      _intel_convert_f16_to_hf8(source.s5),
+                      _intel_convert_f16_to_hf8(source.s6),
+                      _intel_convert_f16_to_hf8(source.s7),
+                      _intel_convert_f16_to_hf8(source.s8),
+                      _intel_convert_f16_to_hf8(source.s9),
+                      _intel_convert_f16_to_hf8(source.sa),
+                      _intel_convert_f16_to_hf8(source.sb),
+                      _intel_convert_f16_to_hf8(source.sc),
+                      _intel_convert_f16_to_hf8(source.sd),
+                      _intel_convert_f16_to_hf8(source.se),
+                      _intel_convert_f16_to_hf8(source.sf));
+}
+
+inline half2 _convert_as_fp8e4m3_t2_half2(char2 source) {
+    return (half2)(_intel_convert_hf8_to_f16(source.s0),
+                    _intel_convert_hf8_to_f16(source.s1));
+}
+
+inline half3 _convert_as_fp8e4m3_t3_half3(char3 source) {
+    return (half3)(_intel_convert_hf8_to_f16(source.s0),
+                    _intel_convert_hf8_to_f16(source.s1),
+                    _intel_convert_hf8_to_f16(source.s2));
+}
+
+inline half4 _convert_as_fp8e4m3_t4_half4(char4 source) {
+    return (half4)(_intel_convert_hf8_to_f16(source.s0),
+                    _intel_convert_hf8_to_f16(source.s1),
+                    _intel_convert_hf8_to_f16(source.s2),
+                    _intel_convert_hf8_to_f16(source.s3));
+}
+
+inline half8 _convert_as_fp8e4m3_t8_half8(char8 source) {
+    return (half8)(_intel_convert_hf8_to_f16(source.s0),
+                    _intel_convert_hf8_to_f16(source.s1),
+                    _intel_convert_hf8_to_f16(source.s2),
+                    _intel_convert_hf8_to_f16(source.s3),
+                    _intel_convert_hf8_to_f16(source.s4),
+                    _intel_convert_hf8_to_f16(source.s5),
+                    _intel_convert_hf8_to_f16(source.s6),
+                    _intel_convert_hf8_to_f16(source.s7));
+}
+
+inline half16 _convert_as_fp8e4m3_t16_half16(char16 source) {
+    return (half16)(_intel_convert_hf8_to_f16(source.s0),
+                     _intel_convert_hf8_to_f16(source.s1),
+                     _intel_convert_hf8_to_f16(source.s2),
+                     _intel_convert_hf8_to_f16(source.s3),
+                     _intel_convert_hf8_to_f16(source.s4),
+                     _intel_convert_hf8_to_f16(source.s5),
+                     _intel_convert_hf8_to_f16(source.s6),
+                     _intel_convert_hf8_to_f16(source.s7),
+                     _intel_convert_hf8_to_f16(source.s8),
+                     _intel_convert_hf8_to_f16(source.s9),
+                     _intel_convert_hf8_to_f16(source.sa),
+                     _intel_convert_hf8_to_f16(source.sb),
+                     _intel_convert_hf8_to_f16(source.sc),
+                     _intel_convert_hf8_to_f16(source.sd),
+                     _intel_convert_hf8_to_f16(source.se),
+                     _intel_convert_hf8_to_f16(source.sf));
+}
+
+inline uchar2 _convert_fp8e5m2_t2_as_uchar2(half2 source) {
+    return (uchar2)(_intel_convert_f16_to_bf8(source.s0),
+                     _intel_convert_f16_to_bf8(source.s1));
+}
+
+inline uchar3 _convert_fp8e5m2_t3_as_uchar3(half3 source) {
+    return (uchar3)(_intel_convert_f16_to_bf8(source.s0),
+                     _intel_convert_f16_to_bf8(source.s1),
+                     _intel_convert_f16_to_bf8(source.s2));
+}
+
+inline uchar4 _convert_fp8e5m2_t4_as_uchar4(half4 source) {
+    return (uchar4)(_intel_convert_f16_to_bf8(source.s0),
+                     _intel_convert_f16_to_bf8(source.s1),
+                     _intel_convert_f16_to_bf8(source.s2),
+                     _intel_convert_f16_to_bf8(source.s3));
+}
+
+inline uchar8 _convert_fp8e5m2_t8_as_uchar8(half8 source) {
+    return (uchar8)(_intel_convert_f16_to_bf8(source.s0),
+                     _intel_convert_f16_to_bf8(source.s1),
+                     _intel_convert_f16_to_bf8(source.s2),
+                     _intel_convert_f16_to_bf8(source.s3),
+                     _intel_convert_f16_to_bf8(source.s4),
+                     _intel_convert_f16_to_bf8(source.s5),
+                     _intel_convert_f16_to_bf8(source.s6),
+                     _intel_convert_f16_to_bf8(source.s7));
+}
+
+inline uchar16 _convert_fp8e5m2_t16_as_uchar16(half16 source) {
+    return (uchar16)(_intel_convert_f16_to_bf8(source.s0),
+                      _intel_convert_f16_to_bf8(source.s1),
+                      _intel_convert_f16_to_bf8(source.s2),
+                      _intel_convert_f16_to_bf8(source.s3),
+                      _intel_convert_f16_to_bf8(source.s4),
+                      _intel_convert_f16_to_bf8(source.s5),
+                      _intel_convert_f16_to_bf8(source.s6),
+                      _intel_convert_f16_to_bf8(source.s7),
+                      _intel_convert_f16_to_bf8(source.s8),
+                      _intel_convert_f16_to_bf8(source.s9),
+                      _intel_convert_f16_to_bf8(source.sa),
+                      _intel_convert_f16_to_bf8(source.sb),
+                      _intel_convert_f16_to_bf8(source.sc),
+                      _intel_convert_f16_to_bf8(source.sd),
+                      _intel_convert_f16_to_bf8(source.se),
+                      _intel_convert_f16_to_bf8(source.sf));
+}
+
+inline half2 _convert_as_fp8e5m2_t2_half2(uchar2 source) {
+    return (half2)(_intel_convert_bf8_to_f16(source.s0),
+                    _intel_convert_bf8_to_f16(source.s1));
+}
+
+inline half3 _convert_as_fp8e5m2_t3_half3(uchar3 source) {
+    return (half3)(_intel_convert_bf8_to_f16(source.s0),
+                    _intel_convert_bf8_to_f16(source.s1),
+                    _intel_convert_bf8_to_f16(source.s2));
+}
+
+inline half4 _convert_as_fp8e5m2_t4_half4(uchar4 source) {
+    return (half4)(_intel_convert_bf8_to_f16(source.s0),
+                    _intel_convert_bf8_to_f16(source.s1),
+                    _intel_convert_bf8_to_f16(source.s2),
+                    _intel_convert_bf8_to_f16(source.s3));
+}
+
+inline half8 _convert_as_fp8e5m2_t8_half8(uchar8 source) {
+    return (half8)(_intel_convert_bf8_to_f16(source.s0),
+                    _intel_convert_bf8_to_f16(source.s1),
+                    _intel_convert_bf8_to_f16(source.s2),
+                    _intel_convert_bf8_to_f16(source.s3),
+                    _intel_convert_bf8_to_f16(source.s4),
+                    _intel_convert_bf8_to_f16(source.s5),
+                    _intel_convert_bf8_to_f16(source.s6),
+                    _intel_convert_bf8_to_f16(source.s7));
+}
+
+inline half16 _convert_as_fp8e5m2_t16_half16(uchar16 source) {
+    return (half16)(_intel_convert_bf8_to_f16(source.s0),
+                     _intel_convert_bf8_to_f16(source.s1),
+                     _intel_convert_bf8_to_f16(source.s2),
+                     _intel_convert_bf8_to_f16(source.s3),
+                     _intel_convert_bf8_to_f16(source.s4),
+                     _intel_convert_bf8_to_f16(source.s5),
+                     _intel_convert_bf8_to_f16(source.s6),
+                     _intel_convert_bf8_to_f16(source.s7),
+                     _intel_convert_bf8_to_f16(source.s8),
+                     _intel_convert_bf8_to_f16(source.s9),
+                     _intel_convert_bf8_to_f16(source.sa),
+                     _intel_convert_bf8_to_f16(source.sb),
+                     _intel_convert_bf8_to_f16(source.sc),
+                     _intel_convert_bf8_to_f16(source.sd),
+                     _intel_convert_bf8_to_f16(source.se),
+                     _intel_convert_bf8_to_f16(source.sf));
+}
+
+inline uchar2 _convert_fp8e8m0_t2_as_uchar2(float2 source) {
+    return (uchar2)(_intel_convert_f32_to_e8m0(source.s0),
+                     _intel_convert_f32_to_e8m0(source.s1));
+}
+
+inline uchar3 _convert_fp8e8m0_t3_as_uchar3(float3 source) {
+    return (uchar3)(_intel_convert_f32_to_e8m0(source.s0),
+                     _intel_convert_f32_to_e8m0(source.s1),
+                     _intel_convert_f32_to_e8m0(source.s2));
+}
+
+inline uchar4 _convert_fp8e8m0_t4_as_uchar4(float4 source) {
+    return (uchar4)(_intel_convert_f32_to_e8m0(source.s0),
+                     _intel_convert_f32_to_e8m0(source.s1),
+                     _intel_convert_f32_to_e8m0(source.s2),
+                     _intel_convert_f32_to_e8m0(source.s3));
+}
+
+inline uchar8 _convert_fp8e8m0_t8_as_uchar8(float8 source) {
+    return (uchar8)(_intel_convert_f32_to_e8m0(source.s0),
+                     _intel_convert_f32_to_e8m0(source.s1),
+                     _intel_convert_f32_to_e8m0(source.s2),
+                     _intel_convert_f32_to_e8m0(source.s3),
+                     _intel_convert_f32_to_e8m0(source.s4),
+                     _intel_convert_f32_to_e8m0(source.s5),
+                     _intel_convert_f32_to_e8m0(source.s6),
+                     _intel_convert_f32_to_e8m0(source.s7));
+}
+
+inline uchar16 _convert_fp8e8m0_t16_as_uchar16(float16 source) {
+    return (uchar16)(_intel_convert_f32_to_e8m0(source.s0),
+                      _intel_convert_f32_to_e8m0(source.s1),
+                      _intel_convert_f32_to_e8m0(source.s2),
+                      _intel_convert_f32_to_e8m0(source.s3),
+                      _intel_convert_f32_to_e8m0(source.s4),
+                      _intel_convert_f32_to_e8m0(source.s5),
+                      _intel_convert_f32_to_e8m0(source.s6),
+                      _intel_convert_f32_to_e8m0(source.s7),
+                      _intel_convert_f32_to_e8m0(source.s8),
+                      _intel_convert_f32_to_e8m0(source.s9),
+                      _intel_convert_f32_to_e8m0(source.sa),
+                      _intel_convert_f32_to_e8m0(source.sb),
+                      _intel_convert_f32_to_e8m0(source.sc),
+                      _intel_convert_f32_to_e8m0(source.sd),
+                      _intel_convert_f32_to_e8m0(source.se),
+                      _intel_convert_f32_to_e8m0(source.sf));
+}
+
+inline float2 _convert_as_fp8e8m0_t2_float2(uchar2 source) {
+    return (float2)(_intel_convert_e8m0_to_f32(source.s0),
+                    _intel_convert_e8m0_to_f32(source.s1));
+}
+
+inline float3 _convert_as_fp8e8m0_t3_float3(uchar3 source) {
+    return (float3)(_intel_convert_e8m0_to_f32(source.s0),
+                    _intel_convert_e8m0_to_f32(source.s1),
+                    _intel_convert_e8m0_to_f32(source.s2));
+}
+
+inline float4 _convert_as_fp8e8m0_t4_float4(uchar4 source) {
+    return (float4)(_intel_convert_e8m0_to_f32(source.s0),
+                    _intel_convert_e8m0_to_f32(source.s1),
+                    _intel_convert_e8m0_to_f32(source.s2),
+                    _intel_convert_e8m0_to_f32(source.s3));
+}
+
+inline float8 _convert_as_fp8e8m0_t8_float8(uchar8 source) {
+    return (float8)(_intel_convert_e8m0_to_f32(source.s0),
+                    _intel_convert_e8m0_to_f32(source.s1),
+                    _intel_convert_e8m0_to_f32(source.s2),
+                    _intel_convert_e8m0_to_f32(source.s3),
+                    _intel_convert_e8m0_to_f32(source.s4),
+                    _intel_convert_e8m0_to_f32(source.s5),
+                    _intel_convert_e8m0_to_f32(source.s6),
+                    _intel_convert_e8m0_to_f32(source.s7));
+}
+
+inline float16 _convert_as_fp8e8m0_t16_float16(uchar16 source) {
+    return (float16)(_intel_convert_e8m0_to_f32(source.s0),
+                     _intel_convert_e8m0_to_f32(source.s1),
+                     _intel_convert_e8m0_to_f32(source.s2),
+                     _intel_convert_e8m0_to_f32(source.s3),
+                     _intel_convert_e8m0_to_f32(source.s4),
+                     _intel_convert_e8m0_to_f32(source.s5),
+                     _intel_convert_e8m0_to_f32(source.s6),
+                     _intel_convert_e8m0_to_f32(source.s7),
+                     _intel_convert_e8m0_to_f32(source.s8),
+                     _intel_convert_e8m0_to_f32(source.s9),
+                     _intel_convert_e8m0_to_f32(source.sa),
+                     _intel_convert_e8m0_to_f32(source.sb),
+                     _intel_convert_e8m0_to_f32(source.sc),
+                     _intel_convert_e8m0_to_f32(source.sd),
+                     _intel_convert_e8m0_to_f32(source.se),
+                     _intel_convert_e8m0_to_f32(source.sf));
+}
+
+#define CONVERT_F8E4M3_AS_UCHAR(val, size) CAT(_convert_fp8e4m3_t, CAT(size, CAT(_as_char, size)))(val)
+#define CONVERT_AS_F8E4M3_HALF(val, size)  CAT(_convert_as_fp8e4m3_t, CAT(size, CAT(_half, size)))(val)
+#define CONVERT_F8E5M2_AS_UCHAR(val, size) CAT(_convert_fp8e5m2_t, CAT(size, CAT(_as_uchar, size)))(val)
+#define CONVERT_AS_F8E5M2_HALF(val, size)  CAT(_convert_as_fp8e5m2_t, CAT(size, CAT(_half, size)))(val)
+#define CONVERT_F8E8M0_AS_UCHAR(val, size) CAT(_convert_fp8e8m0_t, CAT(size, CAT(_as_uchar, size)))(val)
+#define CONVERT_AS_F8E8M0_FLOAT(val, size)  CAT(_convert_as_fp8e8m0_t, CAT(size, CAT(_float, size)))(val)

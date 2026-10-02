@@ -40,15 +40,15 @@ KernelsData ReorderWeightsKernel::GetKernelsData(const Params& params) const {
 
 JitConstants ReorderWeightsKernel::GetJitConstants(const reorder_weights_params& params) const {
     auto jit = ReorderKernelBase::GetJitConstants(params);
-    if ( params.input.GetDType() == WeightsType::BF16 ) {
+    if (params.input.GetDType() == WeightsType::BF16) {
         jit.AddConstant(MakeJitConstant("BF16_INPUT", true));
+    } else if (params.input.GetDType() == WeightsType::F8E4M3) {
+        jit.AddConstant(MakeJitConstant("F8E4M3_INPUT", true));
+    } else if (params.input.GetDType() == WeightsType::F8E5M2) {
+        jit.AddConstant(MakeJitConstant("F8E5M2_INPUT", true));
+    } else if (params.input.GetDType() == WeightsType::F8E8M0) {
+        jit.AddConstant(MakeJitConstant("F8E8M0_INPUT", true));
     }
-    jit.AddConstant(MakeJitConstant("F8E5M2_INPUT", params.input.GetDType() == WeightsType::F8E5M2 ? 1 : 0));
-    jit.AddConstant(MakeJitConstant("F8E4M3_INPUT", params.input.GetDType() == WeightsType::F8E4M3 ? 1 : 0));
-    jit.AddConstant(MakeJitConstant("F8E8M0_INPUT", params.input.GetDType() == WeightsType::F8E8M0 ? 1 : 0));
-    jit.AddConstant(MakeJitConstant("F8E5M2_OUTPUT", params.output.GetDType() == WeightsType::F8E5M2 ? 1 : 0));
-    jit.AddConstant(MakeJitConstant("F8E4M3_OUTPUT", params.output.GetDType() == WeightsType::F8E4M3 ? 1 : 0));
-    jit.AddConstant(MakeJitConstant("F8E8M0_OUTPUT", params.output.GetDType() == WeightsType::F8E8M0 ? 1 : 0));
     return jit;
 }
 

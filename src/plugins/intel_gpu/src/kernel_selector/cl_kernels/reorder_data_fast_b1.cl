@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if F8E5M2_INPUT || F8E4M3_INPUT || F8E8M0_INPUT || F8E5M2_OUTPUT || F8E4M3_OUTPUT || F8E8M0_OUTPUT
+#if INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8
 #include "include/f8_utils.cl"
 #endif
 

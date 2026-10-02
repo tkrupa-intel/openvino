@@ -23,6 +23,9 @@ inline uint32_t BytesPerElement(Datatype dt) {
     switch (dt) {
     case Datatype::INT8:
     case Datatype::UINT8:
+    case Datatype::F8E4M3:
+    case Datatype::F8E5M2:
+    case Datatype::F8E8M0:
         return 1;
     case Datatype::F16:
     case Datatype::BF16:
@@ -44,6 +47,9 @@ inline uint32_t BytesPerElement(WeightsType wt) {
     switch (wt) {
     case WeightsType::INT8:
     case WeightsType::UINT8:
+    case WeightsType::F8E4M3:
+    case WeightsType::F8E5M2:
+    case WeightsType::F8E8M0:
         return 1;
     case WeightsType::F16:
     case WeightsType::BF16:
