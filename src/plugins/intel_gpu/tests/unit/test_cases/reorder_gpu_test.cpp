@@ -919,12 +919,12 @@ TEST(reorder_gpu_optimization, dynamic_fsv_reorder_bf16) {
 }
 
 TEST(reorder_gpu_optimization, dynamic_fsv_reorder_f8) {
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e4m3, data_types::f8e4m3, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e4m3, data_types::f8e4m3, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e5m2, data_types::f8e5m2, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e5m2, data_types::f8e5m2, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e8m0, data_types::f8e8m0, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
-    compare_bfyx2blocked_with_ref_dynamic("reorder_data_bfyx_to_blocked_format", data_types::f8e8m0, data_types::f8e8m0, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e4m3, data_types::f8e4m3, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e4m3, data_types::f8e4m3, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e5m2, data_types::f8e5m2, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e5m2, data_types::f8e5m2, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e8m0, data_types::f8e8m0, format::b_fs_zyx_fsv16, format::b_fs_zyx_fsv32, 1, 32, 8, 8, 8, 0);
+    compare_bfyx2blocked_with_ref_dynamic("reorder_data_fsv", data_types::f8e8m0, data_types::f8e8m0, format::b_fs_yx_fsv32, format::b_fs_yx_fsv16, 2, 64, 16, 8, 0, 0);
 }
 
 TEST(reorder_gpu_optimization, dynamic_fsv_reorder_cross_type) {
@@ -1552,6 +1552,188 @@ TEST(reorder_gpu_f16, basic_subtract_f32_output_f32) {
     }
 }
 
+TEST(reorder_gpu_f8e4m3, basic_subtract_f32_output_f32) {
+    //  Input               : 2x2x2x2 (F8E4M3)
+    //  Output              : 2x2x2x2 (FP32)
+    //  Subtract            : 1x2x2x2 (FP32, only first batch is taken into consideration)
+    //
+    //  Input:
+    //  f0: b0:  1    2  b1:   0    0
+    //  f0: b0:  3    4  b1:   0.5 -0.5
+    //  f1: b0:  5    6  b1:   1.5  5.5
+    //  f1: b0:  7    8  b1:   12   8
+    //
+    //  Subtract (FP32 - converted internally to F8E4M3 before subtraction):
+    //  f0: b0:  1    1.5
+    //  f0: b0:  2    2.5
+    //  f1: b0:  4    3
+    //  f1: b0:  2    1
+    //
+    //
+    //  Output:
+    //  b0 f0:  0    0.5
+    //  b0 f0:  1    1.5
+    //
+    //  b0 f1:  1    3
+    //  b0 f1:  5    7
+    //
+    //  b1 f0: -1   -1.5
+    //  b1 f0: -1.5 -3
+    //
+    //  b1 f1: -2.5  2.5
+    //  b1 f1: 10    7
+    //
+
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::f8e4m3, format::yxfb, { 2, 2, 2, 2 } });
+    layout output_layout(data_types::f32, format::bfyx,{ 2, 2, 2, 2 });
+    auto subtract = engine.allocate_memory({ data_types::f32, format::byxf, { 1, 2, 2, 2 } });
+
+    set_values(input, {
+        ov::float8_e4m3(1.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(5.f), ov::float8_e4m3(1.5f),
+
+        ov::float8_e4m3(2.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(6.f), ov::float8_e4m3(5.5f),
+
+        ov::float8_e4m3(3.f), ov::float8_e4m3(0.5f),
+        ov::float8_e4m3(7.f), ov::float8_e4m3(12.f),
+
+        ov::float8_e4m3(4.f), ov::float8_e4m3(-0.5f),
+        ov::float8_e4m3(8.f), ov::float8_e4m3(8.f)
+    });
+
+    set_values(subtract, {
+        1.0f,  4.0f,      1.5f,  3.0f,
+        2.0f,  2.0f,      2.5f,  1.0f,
+    });
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(data("subtract", subtract));
+    topology.add(reorder("reorder", input_info("input"), output_layout, "subtract"));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[16] = { 0.0f,  0.5f,
+                          1.0f,  1.5f,
+
+                          1.0f,  3.0f,
+                          5.0f,  7.0f,
+
+                         -1.0f, -1.5f,
+                         -1.5f, -3.0f,
+
+                         -2.5f,  2.5f,
+                         10.0f,  7.0f
+    };
+
+    cldnn::mem_lock<float> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++)
+    {
+        ASSERT_TRUE(are_equal(answers[i], output_ptr[i]));
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, basic_subtract_f32_output_f32) {
+    //  Input               : 2x2x2x2 (F8E5M2)
+    //  Output              : 2x2x2x2 (FP32)
+    //  Subtract            : 1x2x2x2 (FP32, only first batch is taken into consideration)
+    //
+    //  Input:
+    //  f0: b0:  1    2  b1:   0    0
+    //  f0: b0:  3    4  b1:   0.5 -0.5
+    //  f1: b0:  5    6  b1:   1.5  5
+    //  f1: b0:  7    8  b1:   12   8
+    //
+    //  Subtract (FP32 - converted internally to F8E5M2 before subtraction):
+    //  f0: b0:  1    1.5
+    //  f0: b0:  2    2.5
+    //  f1: b0:  4    3
+    //  f1: b0:  2    1
+    //
+    //
+    //  Output:
+    //  b0 f0:  0    0.5
+    //  b0 f0:  1    1.5
+    //
+    //  b0 f1:  1    3
+    //  b0 f1:  5    7
+    //
+    //  b1 f0: -1   -1.5
+    //  b1 f0: -1.5 -3
+    //
+    //  b1 f1: -2.5  2
+    //  b1 f1: 10    7
+    //
+
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::f8e5m2, format::yxfb, { 2, 2, 2, 2 } });
+    layout output_layout(data_types::f32, format::bfyx,{ 2, 2, 2, 2 });
+    auto subtract = engine.allocate_memory({ data_types::f32, format::byxf, { 1, 2, 2, 2 } });
+
+    set_values(input, {
+        ov::float8_e5m2(1.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(5.f), ov::float8_e5m2(1.5f),
+
+        ov::float8_e5m2(2.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(6.f), ov::float8_e5m2(5.f),
+
+        ov::float8_e5m2(3.f), ov::float8_e5m2(0.5f),
+        ov::float8_e5m2(7.f), ov::float8_e5m2(12.f),
+
+        ov::float8_e5m2(4.f), ov::float8_e5m2(-0.5f),
+        ov::float8_e5m2(8.f), ov::float8_e5m2(8.f)
+    });
+
+    set_values(subtract, {
+        1.0f,  4.0f,      1.5f,  3.0f,
+        2.0f,  2.0f,      2.5f,  1.0f,
+    });
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(data("subtract", subtract));
+    topology.add(reorder("reorder", input_info("input"), output_layout, "subtract"));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[16] = { 0.0f,  0.5f,
+                          1.0f,  1.5f,
+
+                          1.0f,  3.0f,
+                          5.0f,  7.0f,
+
+                         -1.0f, -1.5f,
+                         -1.5f, -3.0f,
+
+                         -2.5f,  2.f,
+                         10.0f,  7.0f
+    };
+
+    cldnn::mem_lock<float> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++)
+    {
+        ASSERT_TRUE(are_equal(answers[i], output_ptr[i]));
+    }
+}
+
 TEST(reorder_gpu_bf16, basic_subtract_f32_output_f32) {
     //  Input               : 2x2x2x2 (BF16)
     //  Output              : 2x2x2x2 (FP32)
@@ -1812,6 +1994,170 @@ TEST(reorder_gpu_bf16, basic_subtract_value) {
     }
 }
 
+TEST(reorder_gpu_f8e4m3, basic_subtract_value) {
+    //  Values_to_subtract  : 2
+    //  Input               : 2x2x2x2 (F8E4M3)
+    //  Output              : 2x2x2x2 (F8E4M3)
+    //
+    //  Input:
+    //  f0: b0:  1    2  b1:   0    0
+    //  f0: b0:  3    4  b1:   0.5 -0.5
+    //  f1: b0:  5    6  b1:   1.5  5.5
+    //  f1: b0:  7    8  b1:   10   8
+    //
+    //  subtract values (FP32 - converted internally to F8E4M3 before subtraction)
+    //  f0: 0.5
+    //  f1: 2.5
+    //
+    //  Output:
+    //  b0 f0:  0.5  1.5
+    //  b0 f0:  2.5  3.5
+    //
+    //  b0 f1:  2.5  3.5
+    //  b0 f1:  4.5  5.5
+    //
+    //  b1 f0: -0.5 -0.5
+    //  b1 f0:  0.0 -1.0
+    //
+    //  b1 f1: -1.0  3.0
+    //  b1 f1:  7.5  5.5
+    //
+
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::f8e4m3, format::yxfb, { 2, 2, 2, 2 } });
+    layout output_layout(data_types::f8e4m3, format::bfyx,{ 2, 2, 2, 2 });
+    std::vector<float> subtract_val = { 0.5, 2.5 };
+
+    set_values(input, {
+        ov::float8_e4m3(1.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(5.f), ov::float8_e4m3(1.5f),
+
+        ov::float8_e4m3(2.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(6.f), ov::float8_e4m3(5.5f),
+
+        ov::float8_e4m3(3.f), ov::float8_e4m3(0.5f),
+        ov::float8_e4m3(7.f), ov::float8_e4m3(10.f),
+
+        ov::float8_e4m3(4.f), ov::float8_e4m3(-0.5f),
+        ov::float8_e4m3(8.f), ov::float8_e4m3(8.f)
+    });
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(reorder("reorder", input_info("input"), output_layout, subtract_val));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[16] = { 0.5f, 1.5f,
+                          2.5f, 3.5f,
+
+                          2.5f, 3.5f,
+                          4.5f, 5.5f,
+
+                         -0.5f, -0.5f,
+                          0.f, -1.f,
+
+                         -1.f, 3.0f,
+                          7.5f, 5.5f
+    };
+
+    cldnn::mem_lock<ov::float8_e4m3> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++)
+    {
+        ASSERT_TRUE(are_equal(answers[i], static_cast<float>(output_ptr[i])));
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, basic_subtract_value) {
+    //  Values_to_subtract  : 2
+    //  Input               : 2x2x2x2 (F8E5M2)
+    //  Output              : 2x2x2x2 (F8E5M2)
+    //
+    //  Input:
+    //  f0: b0:  1    2  b1:   0    0
+    //  f0: b0:  3    4  b1:   0.5 -0.5
+    //  f1: b0:  5    6  b1:   1.5  5
+    //  f1: b0:  3.5    4  b1:   2   0
+    //
+    //  subtract values (FP32 - converted internally to F8E5M2 before subtraction)
+    //  f0: 0.5
+    //  f1: 2.5
+    //
+    //  Output:
+    //  b0 f0:  0.5  1.5
+    //  b0 f0:  2.5  3.5
+    //
+    //  b0 f1:  2.5  3.5
+    //  b0 f1:  1.0  1.5
+    //
+    //  b1 f0: -0.5 -0.5
+    //  b1 f0:  0.0 -1.0
+    //
+    //  b1 f1: -1.0  2.5
+    //  b1 f1:  -0.5  -2.5
+    //
+
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::f8e5m2, format::yxfb, { 2, 2, 2, 2 } });
+    layout output_layout(data_types::f8e5m2, format::bfyx,{ 2, 2, 2, 2 });
+    std::vector<float> subtract_val = { 0.5, 2.5 };
+
+    set_values(input, {
+        ov::float8_e5m2(1.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(5.f), ov::float8_e5m2(1.5f),
+
+        ov::float8_e5m2(2.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(6.f), ov::float8_e5m2(5.f),
+
+        ov::float8_e5m2(3.f), ov::float8_e5m2(0.5f),
+        ov::float8_e5m2(3.5f), ov::float8_e5m2(2.f),
+
+        ov::float8_e5m2(4.f), ov::float8_e5m2(-0.5f),
+        ov::float8_e5m2(4.f), ov::float8_e5m2(0.f)
+    });
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(reorder("reorder", input_info("input"), output_layout, subtract_val));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[16] = { 0.5f, 1.5f,
+                          2.5f, 3.5f,
+
+                          2.5f, 3.5f,
+                          1.0f, 1.5f,
+
+                         -0.5f, -0.5f,
+                          0.f, -1.f,
+
+                         -1.f, 2.5f,
+                          -0.5f, -2.5f
+    };
+
+    cldnn::mem_lock<ov::float8_e5m2> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++)
+    {
+        ASSERT_TRUE(are_equal(answers[i], static_cast<float>(output_ptr[i])));
+    }
+}
+
 TEST(reorder_gpu, basic_convert_f16_f32_f16) {
     //  Converts entire unambiguous range of FP16 numbers to FP32 and back.
     //
@@ -1967,6 +2313,217 @@ TEST(reorder_gpu, basic_convert_bf16_f32_bf16) {
     for (int i = 0; i < 0xFF02; ++i) // NOTE: do not test for possibly ambiguous values of floating point (-0, NaNs).
     {
         ASSERT_TRUE(are_equal(static_cast<uint16_t>(expected_values[i]), static_cast<uint16_t>(output_ptr[i])));
+    }
+}
+
+TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e4m3) {
+    //  Converts entire unambiguous range of F8E4M3 numbers to FP32 and back.
+    //
+    //  F8E4M3 layout: sign(1) + exponent(4) + mantissa(3).
+    //  +infinity = 0x7F, -infinity = 0xFF.
+    //
+    //  Output is expected to contain the same value as input in range of indices from 0x00 to 0xFF.
+    //
+
+    auto& engine = get_test_engine();
+
+    std::vector<ov::float8_e4m3> expected_values;
+    expected_values.resize(0x100);
+    for (int i = 0x0; i < 0x7F; ++i)
+        expected_values[i] = ov::float8_e4m3::from_bits(i);          // norms/denorms/zero (positive).
+    for (int i = 0x7F; i < 0xFE; ++i)
+        expected_values[i] = ov::float8_e4m3::from_bits(i + 0x01); // norms/denorms/zero (negative).
+    // Special values.
+    expected_values[0xFE] = ov::float8_e4m3::from_bits(0x7F);    // +NaN
+    expected_values[0xFF] = ov::float8_e4m3::from_bits(0xFF);    // -NaN
+
+    auto input = engine.allocate_memory({ data_types::f8e4m3, format::yxfb, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 } });
+    layout interm_layout( data_types::f32, format::byxf, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 });
+    auto output_layout = input->get_layout();
+
+    set_values(input, expected_values);
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(reorder("reorder_f8e4m3_f32", input_info("input"), interm_layout));
+    topology.add(reorder("reorder_f32_f8e4m3", input_info("reorder_f8e4m3_f32"), output_layout));
+
+    ExecutionConfig cfg = get_test_default_config(engine);
+    cfg.set_property(ov::intel_gpu::custom_outputs(std::vector<std::string>{"reorder_f8e4m3_f32", "reorder_f32_f8e4m3"}));
+    network network(engine, topology, cfg);
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(2));
+    ASSERT_TRUE(outputs.find("reorder_f8e4m3_f32") != outputs.end());
+    ASSERT_TRUE(outputs.find("reorder_f32_f8e4m3") != outputs.end());
+
+    auto interm = outputs.at("reorder_f8e4m3_f32").get_memory();
+    cldnn::mem_lock<float, mem_lock_type::read> interm_ptr(interm, get_test_stream());
+
+    // Sample positive.
+    ASSERT_TRUE(are_equal(interm_ptr[0x28], 0.25f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x30], 0.5f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x38], 1.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x40], 2.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x48], 4.0f));
+    // Sample negative.
+    ASSERT_TRUE(are_equal(interm_ptr[0x28 + 0x7F], -0.25f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x30 + 0x7F], -0.5f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x38 + 0x7F], -1.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x40 + 0x7F], -2.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x48 + 0x7F], -4.0f));
+    // Special values.
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFE]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFF]));
+
+    auto output = outputs.at("reorder_f32_f8e4m3").get_memory();
+    cldnn::mem_lock<ov::float8_e4m3, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 0x100; ++i)
+    {
+        ASSERT_TRUE(are_equal(static_cast<uint8_t>(expected_values[i]), static_cast<uint8_t>(output_ptr[i])));
+    }
+}
+
+TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e5m2) {
+    //  Converts entire unambiguous range of F8E5M2 numbers to FP32 and back.
+    //
+    //  F8E5M2 layout: sign(1) + exponent(5) + mantissa(2).
+    //  +infinity = 0x7C, -infinity = 0xFC.
+    //
+    //  Output is expected to contain the same value as input in range of indices from 0x00 to 0xFF.
+    //
+
+    auto& engine = get_test_engine();
+
+    std::vector<ov::float8_e5m2> expected_values;
+    expected_values.resize(0x100);
+    for (int i = 0x0; i < 0x7C; ++i)
+        expected_values[i] = ov::float8_e5m2::from_bits(i);          // norms/denorms/zero (positive).
+    for (int i = 0x7C; i < 0xF8; ++i)
+        expected_values[i] = ov::float8_e5m2::from_bits(i + 0x04); // norms/denorms/zero (negative).
+    // Special values.
+    expected_values[0xF8] = ov::float8_e5m2::from_bits(0x7C);    // +inf
+    expected_values[0xF9] = ov::float8_e5m2::from_bits(0xFC);    // -inf
+    expected_values[0xFA] = ov::float8_e5m2::from_bits(0x7E);  // +NaN
+    expected_values[0xFB] = ov::float8_e5m2::from_bits(0x7E);  // +NaN
+    expected_values[0xFC] = ov::float8_e5m2::from_bits(0x7F);  // +NaN
+    expected_values[0xFD] = ov::float8_e5m2::from_bits(0xFE);  // -NaN
+    expected_values[0xFE] = ov::float8_e5m2::from_bits(0xFE);  // -NaN
+    expected_values[0xFF] = ov::float8_e5m2::from_bits(0xFF);  // -NaN
+
+    auto input = engine.allocate_memory({ data_types::f8e5m2, format::yxfb, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 } });
+    layout interm_layout( data_types::f32, format::byxf, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 });
+    auto output_layout = input->get_layout();
+
+    set_values(input, expected_values);
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(reorder("reorder_f8e5m2_f32", input_info("input"), interm_layout));
+    topology.add(reorder("reorder_f32_f8e5m2", input_info("reorder_f8e5m2_f32"), output_layout));
+
+    ExecutionConfig cfg = get_test_default_config(engine);
+    cfg.set_property(ov::intel_gpu::custom_outputs(std::vector<std::string>{"reorder_f8e5m2_f32", "reorder_f32_f8e5m2"}));
+    network network(engine, topology, cfg);
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(2));
+    ASSERT_TRUE(outputs.find("reorder_f8e5m2_f32") != outputs.end());
+    ASSERT_TRUE(outputs.find("reorder_f32_f8e5m2") != outputs.end());
+
+    auto interm = outputs.at("reorder_f8e5m2_f32").get_memory();
+    cldnn::mem_lock<float, mem_lock_type::read> interm_ptr(interm, get_test_stream());
+
+    // Sample positive.
+    ASSERT_TRUE(are_equal(interm_ptr[0x34], 0.25f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x38], 0.5f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x3C], 1.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x40], 2.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x44], 4.0f));
+    // Sample negative.
+    ASSERT_TRUE(are_equal(interm_ptr[0x34 + 0x7C], -0.25f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x38 + 0x7C], -0.5f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x3C + 0x7C], -1.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x40 + 0x7C], -2.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x44 + 0x7C], -4.0f));
+    // Special values.
+    ASSERT_TRUE(std::isinf(interm_ptr[0xF8]));
+    ASSERT_TRUE(std::isinf(interm_ptr[0xF9]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFA]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFB]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFC]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFD]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFE]));
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFF]));
+
+    auto output = outputs.at("reorder_f32_f8e5m2").get_memory();
+    cldnn::mem_lock<ov::float8_e5m2, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 0x100; ++i)
+    {
+        ASSERT_TRUE(are_equal(static_cast<uint8_t>(expected_values[i]), static_cast<uint8_t>(output_ptr[i])));
+    }
+}
+
+TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e8m0) {
+    //  Converts entire unambiguous range of F8E8M0 numbers to FP32 and back.
+    //
+    //  F8E8M0 layout: sign(1) + exponent(8) + mantissa(0).
+    //
+    //  Output is expected to contain the same value as input in range of indices from 0x00 to 0xFF.
+    //
+
+    auto& engine = get_test_engine();
+
+    std::vector<ov::float8_e8m0> expected_values;
+    expected_values.resize(0x100);
+    for (int i = 0x0; i < 0xFF; ++i)
+        expected_values[i] = ov::float8_e8m0::from_bits(i);
+    // Special values.
+    expected_values[0xFF] = ov::float8_e8m0::from_bits(0xFF);  // NaN
+
+    auto input = engine.allocate_memory({ data_types::f8e8m0, format::yxfb, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 } });
+    layout interm_layout( data_types::f32, format::byxf, { 1, static_cast<int32_t>(expected_values.size()) / 4, 2, 2 });
+    auto output_layout = input->get_layout();
+
+    set_values(input, expected_values);
+
+    topology topology;
+    topology.add(input_layout("input", input->get_layout()));
+    topology.add(reorder("reorder_f8e8m0_f32", input_info("input"), interm_layout));
+    topology.add(reorder("reorder_f32_f8e8m0", input_info("reorder_f8e8m0_f32"), output_layout));
+
+    ExecutionConfig cfg = get_test_default_config(engine);
+    cfg.set_property(ov::intel_gpu::custom_outputs(std::vector<std::string>{"reorder_f8e8m0_f32", "reorder_f32_f8e8m0"}));
+    network network(engine, topology, cfg);
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(2));
+    ASSERT_TRUE(outputs.find("reorder_f8e8m0_f32") != outputs.end());
+    ASSERT_TRUE(outputs.find("reorder_f32_f8e8m0") != outputs.end());
+
+    auto interm = outputs.at("reorder_f8e8m0_f32").get_memory();
+    cldnn::mem_lock<float, mem_lock_type::read> interm_ptr(interm, get_test_stream());
+
+    // Sample.
+    ASSERT_TRUE(are_equal(interm_ptr[0x7D], 0.25f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x7E], 0.5f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x7F], 1.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x80], 2.0f));
+    ASSERT_TRUE(are_equal(interm_ptr[0x81], 4.0f));
+    // Special values.
+    ASSERT_TRUE(std::isnan(interm_ptr[0xFF]));
+
+    auto output = outputs.at("reorder_f32_f8e8m0").get_memory();
+    cldnn::mem_lock<ov::float8_e8m0, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 0xFF; ++i)
+    {
+        ASSERT_TRUE(are_equal(static_cast<uint8_t>(expected_values[i]), static_cast<uint8_t>(output_ptr[i])));
     }
 }
 
@@ -2527,6 +3084,189 @@ TEST(reorder_gpu_bf16, dynamic_bfyx_to_bfyx_dynamic_padding_x) {
 
 }
 
+TEST(reorder_gpu_f8e4m3, dynamic_bfyx_to_bfyx_dynamic_padding_x) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{1, 1, 4, 2};
+    padding::DynamicDimsMask dyn_pad_dims("1000"); // {0, 0, 0, 1}
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e4m3,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims /*dynamic_pad_dim : x*/)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e4m3,
+                                             format::bfyx,
+                                             padding({0, 0, 0, 2}, {0, 0, 0, 1}, dyn_pad_dims)});
+    set_values<ov::float8_e4m3>(input_mem, {
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // padding
+        ov::float8_e4m3(1.f), ov::float8_e4m3(2.f), // data
+        ov::float8_e4m3(0.f),               // padding
+
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // padding
+        ov::float8_e4m3(3.f), ov::float8_e4m3(4.f), // data
+        ov::float8_e4m3(0.f),               // padding
+
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // padding
+        ov::float8_e4m3(5.f), ov::float8_e4m3(6.f), // data
+        ov::float8_e4m3(0.f),               // padding
+
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // padding
+        ov::float8_e4m3(7.f), ov::float8_e4m3(8.f), // data
+        ov::float8_e4m3(0.f),               // padding
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[8] = {
+        1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 8; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, dynamic_bfyx_to_bfyx_dynamic_padding_x) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{1, 1, 4, 2};
+    padding::DynamicDimsMask dyn_pad_dims("1000"); // {0, 0, 0, 1}
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e5m2,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims /*dynamic_pad_dim : x*/)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e5m2,
+                                             format::bfyx,
+                                             padding({0, 0, 0, 2}, {0, 0, 0, 1}, dyn_pad_dims)});
+    set_values<ov::float8_e5m2>(input_mem, {
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // padding
+        ov::float8_e5m2(1.f), ov::float8_e5m2(2.f), // data
+        ov::float8_e5m2(0.f),               // padding
+
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // padding
+        ov::float8_e5m2(3.f), ov::float8_e5m2(4.f), // data
+        ov::float8_e5m2(0.f),               // padding
+
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // padding
+        ov::float8_e5m2(5.f), ov::float8_e5m2(6.f), // data
+        ov::float8_e5m2(0.f),               // padding
+
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // padding
+        ov::float8_e5m2(7.f), ov::float8_e5m2(8.f), // data
+        ov::float8_e5m2(0.f),               // padding
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[8] = {
+        1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 8; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e8m0, dynamic_bfyx_to_bfyx_dynamic_padding_x) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{1, 1, 4, 2};
+    padding::DynamicDimsMask dyn_pad_dims("1000"); // {0, 0, 0, 1}
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e8m0,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims /*dynamic_pad_dim : x*/)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e8m0,
+                                             format::bfyx,
+                                             padding({0, 0, 0, 2}, {0, 0, 0, 1}, dyn_pad_dims)});
+    set_values<ov::float8_e8m0>(input_mem, {
+        ov::float8_e8m0(-1.f), ov::float8_e8m0(-1.f), // padding
+        ov::float8_e8m0(2.f), ov::float8_e8m0(4.f), // data
+        ov::float8_e8m0(-1.f),               // padding
+
+        ov::float8_e8m0(-1.f), ov::float8_e8m0(-1.f), // padding
+        ov::float8_e8m0(8.f), ov::float8_e8m0(16.f), // data
+        ov::float8_e8m0(-1.f),               // padding
+
+        ov::float8_e8m0(-1.f), ov::float8_e8m0(-1.f), // padding
+        ov::float8_e8m0(32.f), ov::float8_e8m0(64.f), // data
+        ov::float8_e8m0(-1.f),               // padding
+
+        ov::float8_e8m0(-1.f), ov::float8_e8m0(-1.f), // padding
+        ov::float8_e8m0(128.f), ov::float8_e8m0(256.f), // data
+        ov::float8_e8m0(-1.f),               // padding
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[8] = {
+        2.f, 4.f, 8.f, 16.f, 32.f, 64.f, 128.f, 256.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 8; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
+    }
+}
+
 TEST(reorder_gpu_f32, dynamic_bfyx_to_bfyx_dynamic_padding_f) {
     auto& engine = get_test_engine();
 
@@ -2644,6 +3384,186 @@ TEST(reorder_gpu_bf16, dynamic_bfyx_to_bfyx_dynamic_padding_f) {
     cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
     for (int i = 0; i < 12; i++) {
         ASSERT_NEAR(answer[i], output_ptr[i], 1e-2f);
+    }
+}
+
+TEST(reorder_gpu_f8e4m3, dynamic_bfyx_to_bfyx_dynamic_padding_f) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{2, 3, 2, 1};
+    padding::DynamicDimsMask dyn_pad_dims("10");
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e4m3,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e4m3,
+                                             format::bfyx,
+                                             padding({0, 2, 0, 0}, {0, 1, 0, 0}, dyn_pad_dims)});
+    set_values<ov::float8_e4m3>(input_mem, {
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // f before
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // f before
+        ov::float8_e4m3(1.f), ov::float8_e4m3(2.f), // b0 f0
+        ov::float8_e4m3(3.f), ov::float8_e4m3(4.f), // b0 f1
+        ov::float8_e4m3(5.f), ov::float8_e4m3(6.f), // b0 f2
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f), // f after
+
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f),   // f before
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f),   // f before
+        ov::float8_e4m3(11.f), ov::float8_e4m3(22.f), // b1 f0
+        ov::float8_e4m3(32.f), ov::float8_e4m3(44.f), // b1 f1
+        ov::float8_e4m3(56.f), ov::float8_e4m3(64.f), // b1 f2
+        ov::float8_e4m3(0.f), ov::float8_e4m3(0.f),   // f after
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[12] = {
+        1.f, 2.f, 3.f, 4.f, 5.f, 6.f,
+        11.f, 22.f, 32.f, 44.f, 56.f, 64.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 12; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, dynamic_bfyx_to_bfyx_dynamic_padding_f) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{2, 3, 2, 1};
+    padding::DynamicDimsMask dyn_pad_dims("10");
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e5m2,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e5m2,
+                                             format::bfyx,
+                                             padding({0, 2, 0, 0}, {0, 1, 0, 0}, dyn_pad_dims)});
+    set_values<ov::float8_e5m2>(input_mem, {
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // f before
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // f before
+        ov::float8_e5m2(1.f), ov::float8_e5m2(2.f), // b0 f0
+        ov::float8_e5m2(3.f), ov::float8_e5m2(4.f), // b0 f1
+        ov::float8_e5m2(5.f), ov::float8_e5m2(6.f), // b0 f2
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f), // f after
+
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f),   // f before
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f),   // f before
+        ov::float8_e5m2(12.f), ov::float8_e5m2(24.f), // b1 f0
+        ov::float8_e5m2(32.f), ov::float8_e5m2(48.f), // b1 f1
+        ov::float8_e5m2(56.f), ov::float8_e5m2(64.f), // b1 f2
+        ov::float8_e5m2(0.f), ov::float8_e5m2(0.f),   // f after
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[12] = {
+        1.f, 2.f, 3.f, 4.f, 5.f, 6.f,
+        12.f, 24.f, 32.f, 48.f, 56.f, 64.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 12; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e8m0, dynamic_bfyx_to_bfyx_dynamic_padding_f) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{2, 3, 2, 1};
+    padding::DynamicDimsMask dyn_pad_dims("10");
+    layout in_dynamic_layout{ov::PartialShape::dynamic(in_shape.size()),
+                             data_types::f8e8m0,
+                             format::bfyx,
+                             padding({0, 0, 0, 0}, {0, 0, 0, 0}, dyn_pad_dims)};
+
+    std::vector<float> subtract_val = {};
+    topology topology(input_layout("input", in_dynamic_layout),
+                      reorder("reorder",
+                              input_info("input"),
+                              format::bfyx,
+                              data_types::f32,
+                              subtract_val,
+                              cldnn::reorder_mean_mode::subtract,
+                              padding({0, 0, 0, 0}, {0, 0, 0, 0}, 0.0f)));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(false));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+    auto input_mem = engine.allocate_memory({ov::PartialShape(in_shape),
+                                             data_types::f8e8m0,
+                                             format::bfyx,
+                                             padding({0, 2, 0, 0}, {0, 1, 0, 0}, dyn_pad_dims)});
+    set_values<ov::float8_e8m0>(input_mem, {
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f), // f before
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f), // f before
+        ov::float8_e8m0(1.f), ov::float8_e8m0(2.f), // b0 f0
+        ov::float8_e8m0(4.f), ov::float8_e8m0(8.f), // b0 f1
+        ov::float8_e8m0(16.f), ov::float8_e8m0(32.f), // b0 f2
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f), // f after
+
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f),   // f before
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f),   // f before
+        ov::float8_e8m0(64.f), ov::float8_e8m0(128.f), // b1 f0
+        ov::float8_e8m0(256.f), ov::float8_e8m0(512.f), // b1 f1
+        ov::float8_e8m0(1024.f), ov::float8_e8m0(2048.f), // b1 f2
+        ov::float8_e8m0(0.f), ov::float8_e8m0(0.f),   // f after
+    });
+
+    network.set_input_data("input", input_mem);
+
+    auto outputs = network.execute();
+    auto output = outputs.begin()->second.get_memory();
+
+    float answer[12] = {
+        1.f, 2.f, 4.f, 8.f, 16.f, 32.f,
+        64.f, 128.f, 256.f, 512.f, 1024.f, 2048.f
+    };
+
+    cldnn::mem_lock<float, mem_lock_type::read> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 12; i++) {
+        ASSERT_EQ(answer[i], output_ptr[i]);
     }
 }
 
@@ -2780,6 +3700,207 @@ TEST(reorder_gpu_bf16, dynamic_bfyx_to_bfzyx) {
     cldnn::mem_lock<float> output_ptr(output, get_test_stream());
     for (int i = 0; i < 16; i++) {
         ASSERT_NEAR(answers[i], output_ptr[i], 1e-2f);
+    }
+}
+
+TEST(reorder_gpu_f8e4m3, dynamic_bfyx_to_bfzyx) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{ 1, 2, 4, 2 };
+    layout in_layout{ov::PartialShape::dynamic(in_shape.size()), data_types::f8e4m3, format::bfyx};
+    auto input = engine.allocate_memory({ov::PartialShape(in_shape), data_types::f8e4m3, format::bfyx});
+
+    set_values<ov::float8_e4m3>(input, {
+        ov::float8_e4m3(1.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(5.f), ov::float8_e4m3(1.5f),
+
+        ov::float8_e4m3(2.f), ov::float8_e4m3(0.f),
+        ov::float8_e4m3(6.f), ov::float8_e4m3(5.f),
+
+        ov::float8_e4m3(3.f), ov::float8_e4m3(0.5f),
+        ov::float8_e4m3(7.f), ov::float8_e4m3(12.f),
+
+        ov::float8_e4m3(4.f), ov::float8_e4m3(-0.5f),
+        ov::float8_e4m3(8.f), ov::float8_e4m3(8.f)
+    });
+
+    topology topology(
+        input_layout("input", in_layout),
+        reorder("reorder", input_info("input"), format::bfzyx, data_types::f32));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(true));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+
+    auto inst = network.get_primitive("reorder");
+    auto impl = inst->get_impl();
+    ASSERT_TRUE(impl != nullptr);
+    ASSERT_TRUE(impl->is_dynamic());
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+    ASSERT_TRUE(output->get_layout().format == format::bfzyx);
+    auto l = output->get_layout();
+    auto expected_shape = ov::PartialShape(in_shape);
+    ASSERT_EQ(l.get_partial_shape(), expected_shape);
+
+    float answers[16] = {
+        1.f, 0.f,
+        5.f, 1.5f,
+
+        2.f, 0.f,
+        6.f, 5.f,
+
+        3.f, 0.5f,
+        7.f, 12.f,
+
+        4.f, -0.5f,
+        8.f, 8.f
+    };
+
+    cldnn::mem_lock<float> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++) {
+        ASSERT_EQ(answers[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, dynamic_bfyx_to_bfzyx) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{ 1, 2, 4, 2 };
+    layout in_layout{ov::PartialShape::dynamic(in_shape.size()), data_types::f8e5m2, format::bfyx};
+    auto input = engine.allocate_memory({ov::PartialShape(in_shape), data_types::f8e5m2, format::bfyx});
+
+    set_values<ov::float8_e5m2>(input, {
+        ov::float8_e5m2(1.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(5.f), ov::float8_e5m2(1.5f),
+
+        ov::float8_e5m2(2.f), ov::float8_e5m2(0.f),
+        ov::float8_e5m2(6.f), ov::float8_e5m2(5.f),
+
+        ov::float8_e5m2(3.f), ov::float8_e5m2(0.5f),
+        ov::float8_e5m2(7.f), ov::float8_e5m2(12.f),
+
+        ov::float8_e5m2(4.f), ov::float8_e5m2(-0.5f),
+        ov::float8_e5m2(8.f), ov::float8_e5m2(8.f)
+    });
+
+    topology topology(
+        input_layout("input", in_layout),
+        reorder("reorder", input_info("input"), format::bfzyx, data_types::f32));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(true));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+
+    auto inst = network.get_primitive("reorder");
+    auto impl = inst->get_impl();
+    ASSERT_TRUE(impl != nullptr);
+    ASSERT_TRUE(impl->is_dynamic());
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+    ASSERT_TRUE(output->get_layout().format == format::bfzyx);
+    auto l = output->get_layout();
+    auto expected_shape = ov::PartialShape(in_shape);
+    ASSERT_EQ(l.get_partial_shape(), expected_shape);
+
+    float answers[16] = {
+        1.f, 0.f,
+        5.f, 1.5f,
+
+        2.f, 0.f,
+        6.f, 5.f,
+
+        3.f, 0.5f,
+        7.f, 12.f,
+
+        4.f, -0.5f,
+        8.f, 8.f
+    };
+
+    cldnn::mem_lock<float> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++) {
+        ASSERT_EQ(answers[i], output_ptr[i]);
+    }
+}
+
+TEST(reorder_gpu_f8e8m0, dynamic_bfyx_to_bfzyx) {
+    auto& engine = get_test_engine();
+
+    ov::Shape in_shape{ 1, 2, 4, 2 };
+    layout in_layout{ov::PartialShape::dynamic(in_shape.size()), data_types::f8e8m0, format::bfyx};
+    auto input = engine.allocate_memory({ov::PartialShape(in_shape), data_types::f8e8m0, format::bfyx});
+
+    set_values<ov::float8_e8m0>(input, {
+        ov::float8_e8m0(1.f), ov::float8_e8m0(2.f),
+        ov::float8_e8m0(4.f), ov::float8_e8m0(8.f),
+
+        ov::float8_e8m0(16.f), ov::float8_e8m0(32.f),
+        ov::float8_e8m0(64.f), ov::float8_e8m0(128.f),
+
+        ov::float8_e8m0(256.f), ov::float8_e8m0(512.f),
+        ov::float8_e8m0(1024.f), ov::float8_e8m0(2048.f),
+
+        ov::float8_e8m0(4096.f), ov::float8_e8m0(8192.f),
+        ov::float8_e8m0(16384.f), ov::float8_e8m0(32768.f)
+    });
+
+    topology topology(
+        input_layout("input", in_layout),
+        reorder("reorder", input_info("input"), format::bfzyx, data_types::f32));
+
+    ExecutionConfig config = get_test_default_config(engine);
+    config.set_property(ov::intel_gpu::optimize_data(true));
+    config.set_property(ov::intel_gpu::allow_new_shape_infer(true));
+    network network(engine, topology, config);
+
+    auto inst = network.get_primitive("reorder");
+    auto impl = inst->get_impl();
+    ASSERT_TRUE(impl != nullptr);
+    ASSERT_TRUE(impl->is_dynamic());
+
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+    ASSERT_TRUE(output->get_layout().format == format::bfzyx);
+    auto l = output->get_layout();
+    auto expected_shape = ov::PartialShape(in_shape);
+    ASSERT_EQ(l.get_partial_shape(), expected_shape);
+
+    float answers[16] = {
+        1.f, 2.f,
+        4.f, 8.f,
+
+        16.f, 32.f,
+        64.f, 128.f,
+
+        256.f, 512.f,
+        1024.f, 2048.f,
+
+        4096.f, 8192.f,
+        16384.f, 32768.f
+    };
+
+    cldnn::mem_lock<float> output_ptr(output, get_test_stream());
+    for (int i = 0; i < 16; i++) {
+        ASSERT_EQ(answers[i], output_ptr[i]);
     }
 }
 
@@ -3328,6 +4449,68 @@ TEST(reorder_gpu_bf16, subtract_bf16_mean_buffer_from_f32_input) {
     auto outputs = net.execute();
     mem_lock<float> ptr(outputs.at("r1").get_memory(), net.get_stream());
     std::vector<float> expected = {1.0f, 2.5f, 3.0f, 4.0f, 5.0f, 6.5f};
+    ASSERT_EQ(ptr.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        ASSERT_FLOAT_EQ(ptr[i], expected[i]) << "i=" << i;
+    }
+}
+
+TEST(reorder_gpu_f8e4m3, subtract_f8e4m3_mean_buffer_from_f32_input) {
+    auto& engine = get_test_engine();
+
+    auto in = engine.allocate_memory({ov::PartialShape{1, 3, 1, 2}, data_types::f32, format::bfyx});
+    auto sub = engine.allocate_memory({ov::PartialShape{1, 3, 1, 2}, data_types::f8e4m3, format::bfyx});
+
+    set_values(in, {1.5f, 2.75f, 3.5f, 4.f, 5.5f, 6.5f});
+    set_values(sub, {ov::float8_e4m3(0.5f), ov::float8_e4m3(0.25f), ov::float8_e4m3(0.5f), ov::float8_e4m3(0.25f), ov::float8_e4m3(0.5f), ov::float8_e4m3(0.5f)});
+
+    topology tpl{
+        input_layout("in", in->get_layout()),
+        data("sub", sub),
+        reorder("r1", input_info("in"), in->get_layout(), "sub"),
+    };
+
+    ExecutionConfig config = get_test_default_config(engine);
+    ov::intel_gpu::ImplementationDesc reorder_impl = {format::bfyx, "reorder_data"};
+    config.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{{"r1", reorder_impl}}));
+
+    network net(engine, tpl, config);
+    net.set_input_data("in", in);
+
+    auto outputs = net.execute();
+    mem_lock<float> ptr(outputs.at("r1").get_memory(), net.get_stream());
+    std::vector<float> expected = {1.f, 2.5f, 3.f, 3.75f, 5.f, 6.f};
+    ASSERT_EQ(ptr.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        ASSERT_FLOAT_EQ(ptr[i], expected[i]) << "i=" << i;
+    }
+}
+
+TEST(reorder_gpu_f8e5m2, subtract_f8e5m2_mean_buffer_from_f32_input) {
+    auto& engine = get_test_engine();
+
+    auto in = engine.allocate_memory({ov::PartialShape{1, 3, 1, 2}, data_types::f32, format::bfyx});
+    auto sub = engine.allocate_memory({ov::PartialShape{1, 3, 1, 2}, data_types::f8e5m2, format::bfyx});
+
+    set_values(in, {1.5f, 2.5f, 3.5f, 4.f, 5.f, 6.f});
+    set_values(sub, {ov::float8_e5m2(0.5f), ov::float8_e5m2(0.5f), ov::float8_e5m2(1.5f), ov::float8_e5m2(2.f), ov::float8_e5m2(0.f), ov::float8_e5m2(-1.f)});
+
+    topology tpl{
+        input_layout("in", in->get_layout()),
+        data("sub", sub),
+        reorder("r1", input_info("in"), in->get_layout(), "sub"),
+    };
+
+    ExecutionConfig config = get_test_default_config(engine);
+    ov::intel_gpu::ImplementationDesc reorder_impl = {format::bfyx, "reorder_data"};
+    config.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{{"r1", reorder_impl}}));
+
+    network net(engine, tpl, config);
+    net.set_input_data("in", in);
+
+    auto outputs = net.execute();
+    mem_lock<float> ptr(outputs.at("r1").get_memory(), net.get_stream());
+    std::vector<float> expected = {1.f, 2.f, 1.5f, 2.f, 5.f, 7.f};
     ASSERT_EQ(ptr.size(), expected.size());
     for (size_t i = 0; i < expected.size(); ++i) {
         ASSERT_FLOAT_EQ(ptr[i], expected[i]) << "i=" << i;
@@ -5546,4 +6729,14 @@ TEST(reorder_gpu_i4, bf16_to_i4) {
 TEST(reorder_gpu_i4, bf16_to_u4) {
     std::vector<ov::bfloat16> input_data = {ov::bfloat16(-8.5f), ov::bfloat16(7.2f), ov::bfloat16(0.0f), ov::bfloat16(6.0f)};
     run_reorder_test_i4(data_types::bf16, data_types::u4, input_data, {0x70, 0x60});
+}
+
+TEST(reorder_gpu_i4, f8e4m3_to_i4) {
+    std::vector<ov::float8_e4m3> input_data = {ov::float8_e4m3(-8.f), ov::float8_e4m3(7.5f), ov::float8_e4m3(0.0f), ov::float8_e4m3(6.0f)};
+    run_reorder_test_i4(data_types::f8e4m3, data_types::i4, input_data, {0x78, 0x60});
+}
+
+TEST(reorder_gpu_i4, f8e4m3_to_u4) {
+    std::vector<ov::float8_e4m3> input_data = {ov::float8_e4m3(-8.f), ov::float8_e4m3(7.5f), ov::float8_e4m3(0.0f), ov::float8_e4m3(6.0f)};
+    run_reorder_test_i4(data_types::f8e4m3, data_types::u4, input_data, {0x70, 0x60});
 }

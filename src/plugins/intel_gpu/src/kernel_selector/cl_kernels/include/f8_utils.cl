@@ -1287,8 +1287,6 @@ uchar16 __attribute__((overloadable)) _as_uchar16(fp8e8m0_t16 val) {
                      val.data.sC, val.data.sD, val.data.sE, val.data.sF);
 }
 
-#endif
-
 ////////////////////////
 
 inline char2 _convert_fp8e4m3_t2_as_char2(half2 source) {
@@ -1585,3 +1583,5 @@ inline float16 _convert_as_fp8e8m0_t16_float16(uchar16 source) {
 #define CONVERT_AS_F8E5M2_HALF(val, size)  CAT(_convert_as_fp8e5m2_t, CAT(size, CAT(_half, size)))(val)
 #define CONVERT_F8E8M0_AS_UCHAR(val, size) CAT(_convert_fp8e8m0_t, CAT(size, CAT(_as_uchar, size)))(val)
 #define CONVERT_AS_F8E8M0_FLOAT(val, size)  CAT(_convert_as_fp8e8m0_t, CAT(size, CAT(_float, size)))(val)
+
+#endif
