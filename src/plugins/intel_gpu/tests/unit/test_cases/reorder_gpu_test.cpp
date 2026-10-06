@@ -5523,6 +5523,142 @@ TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_bf16)
 
 }
 
+TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e4m3)
+{
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::u8, format::image_2d_rgba, { 1, 3, 2, 2 } });
+    layout output_layout(data_types::f8e4m3, format::bfyx, { 1, 3, 2, 2 });
+
+    set_values<unsigned char>(input, {
+        1, 0, 5, 7,
+        2, 112, 120, 8,
+        120, 128, 52, 9,
+        250, 250, 250, 208
+        });
+
+    topology topology(
+        input_layout("input", input->get_layout()),
+        reorder("reorder", input_info("input"), output_layout));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[12] = {
+        1.0f,  2.0f,
+        120.0f,  250.0f,
+
+        0.0f,  112.0f,
+        128.0f,  250.0f,
+
+        5.0f,  120.0f,
+        52.0f, 250.0f,
+    };
+
+    cldnn::mem_lock<ov::float8_e4m3> output_ptr (output, get_test_stream());
+    for (int i = 0; i < 12; i++)
+    {
+        ASSERT_EQ(ov::float8_e4m3(answers[i] / 255.f), output_ptr[i]);
+    }
+
+}
+
+TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e5m2)
+{
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::u8, format::image_2d_rgba, { 1, 3, 2, 2 } });
+    layout output_layout(data_types::f8e5m2, format::bfyx, { 1, 3, 2, 2 });
+
+    set_values<unsigned char>(input, {
+        1, 0, 5, 7,
+        2, 112, 128, 8,
+        128, 128, 56, 10,
+        250, 250, 250, 224
+        });
+
+    topology topology(
+        input_layout("input", input->get_layout()),
+        reorder("reorder", input_info("input"), output_layout));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[12] = {
+        1.0f,  2.0f,
+        128.0f,  250.0f,
+
+        0.0f,  112.0f,
+        128.0f,  250.0f,
+
+        5.0f,  120.0f,
+        56.0f, 250.0f,
+    };
+
+    cldnn::mem_lock<ov::float8_e5m2> output_ptr (output, get_test_stream());
+    for (int i = 0; i < 12; i++)
+    {
+        ASSERT_EQ(ov::float8_e5m2(answers[i] / 255.f), output_ptr[i]);
+    }
+}
+
+TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e8m0)
+{
+    auto& engine = get_test_engine();
+
+    auto input = engine.allocate_memory({ data_types::u8, format::image_2d_rgba, { 1, 3, 2, 2 } });
+    layout output_layout(data_types::f8e8m0, format::bfyx, { 1, 3, 2, 2 });
+
+    set_values<unsigned char>(input, {
+        1, 16, 2, 4,
+        2, 32, 4, 8,
+        4, 64, 8, 16,
+        8, 128, 16, 32
+        });
+
+    topology topology(
+        input_layout("input", input->get_layout()),
+        reorder("reorder", input_info("input"), output_layout));
+
+    network network(engine, topology, get_test_default_config(engine));
+    network.set_input_data("input", input);
+
+    auto outputs = network.execute();
+    ASSERT_EQ(outputs.size(), size_t(1));
+    ASSERT_EQ(outputs.begin()->first, "reorder");
+
+    auto output = outputs.begin()->second.get_memory();
+
+    float answers[12] = {
+        1.0f,  2.0f,
+        4.0f,  8.0f,
+
+        16.0f,  32.0f,
+        64.0f,  128.0f,
+
+        2.0f,  4.0f,
+        8.0f, 16.0f,
+    };
+
+    cldnn::mem_lock<ov::float8_e8m0> output_ptr (output, get_test_stream());
+    for (int i = 0; i < 12; i++)
+    {
+        ASSERT_EQ(ov::float8_e8m0(answers[i] / 255.f), output_ptr[i]);
+    }
+}
+
 TEST(reorder_bfyx_to_image2d_rgba_gpu, basic)
 {
     auto& engine = get_test_engine();

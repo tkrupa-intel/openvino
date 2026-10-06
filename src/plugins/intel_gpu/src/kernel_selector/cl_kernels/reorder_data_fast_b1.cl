@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8
+#if INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8 || MEAN_SUBTRACT_IS_F8
 #include "include/f8_utils.cl"
 #endif
 
