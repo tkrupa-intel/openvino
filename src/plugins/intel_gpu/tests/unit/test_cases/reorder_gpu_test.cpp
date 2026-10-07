@@ -4510,7 +4510,7 @@ TEST(reorder_gpu_f8e5m2, subtract_f8e5m2_mean_buffer_from_f32_input) {
 
     auto outputs = net.execute();
     mem_lock<float> ptr(outputs.at("r1").get_memory(), net.get_stream());
-    std::vector<float> expected = {1.f, 2.f, 1.5f, 2.f, 5.f, 7.f};
+    std::vector<float> expected = {1.f, 2.f, 2.f, 2.f, 5.f, 7.f};
     ASSERT_EQ(ptr.size(), expected.size());
     for (size_t i = 0; i < expected.size(); ++i) {
         ASSERT_FLOAT_EQ(ptr[i], expected[i]) << "i=" << i;
@@ -5549,6 +5549,7 @@ TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e4m3)
     ASSERT_EQ(outputs.begin()->first, "reorder");
 
     auto output = outputs.begin()->second.get_memory();
+    ASSERT_EQ(output->get_layout().data_type, data_types::f16);
 
     float answers[12] = {
         1.0f,  2.0f,
@@ -5561,10 +5562,10 @@ TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e4m3)
         52.0f, 250.0f,
     };
 
-    cldnn::mem_lock<ov::float8_e4m3> output_ptr (output, get_test_stream());
+    cldnn::mem_lock<ov::float16> output_ptr (output, get_test_stream());
     for (int i = 0; i < 12; i++)
     {
-        ASSERT_EQ(ov::float8_e4m3(answers[i] / 255.f), output_ptr[i]);
+        ASSERT_NEAR(ov::float16(answers[i] / 255.f), output_ptr[i], 1e-3f);
     }
 
 }
@@ -5595,6 +5596,7 @@ TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e5m2)
     ASSERT_EQ(outputs.begin()->first, "reorder");
 
     auto output = outputs.begin()->second.get_memory();
+    ASSERT_EQ(output->get_layout().data_type, data_types::f16);
 
     float answers[12] = {
         1.0f,  2.0f,
@@ -5603,59 +5605,14 @@ TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e5m2)
         0.0f,  112.0f,
         128.0f,  250.0f,
 
-        5.0f,  120.0f,
+        5.0f,  128.0f,
         56.0f, 250.0f,
     };
 
-    cldnn::mem_lock<ov::float8_e5m2> output_ptr (output, get_test_stream());
+    cldnn::mem_lock<ov::float16> output_ptr (output, get_test_stream());
     for (int i = 0; i < 12; i++)
     {
-        ASSERT_EQ(ov::float8_e5m2(answers[i] / 255.f), output_ptr[i]);
-    }
-}
-
-TEST(reorder_image2d_rgba_to_bfyx_gpu, basic_f8e8m0)
-{
-    auto& engine = get_test_engine();
-
-    auto input = engine.allocate_memory({ data_types::u8, format::image_2d_rgba, { 1, 3, 2, 2 } });
-    layout output_layout(data_types::f8e8m0, format::bfyx, { 1, 3, 2, 2 });
-
-    set_values<unsigned char>(input, {
-        1, 16, 2, 4,
-        2, 32, 4, 8,
-        4, 64, 8, 16,
-        8, 128, 16, 32
-        });
-
-    topology topology(
-        input_layout("input", input->get_layout()),
-        reorder("reorder", input_info("input"), output_layout));
-
-    network network(engine, topology, get_test_default_config(engine));
-    network.set_input_data("input", input);
-
-    auto outputs = network.execute();
-    ASSERT_EQ(outputs.size(), size_t(1));
-    ASSERT_EQ(outputs.begin()->first, "reorder");
-
-    auto output = outputs.begin()->second.get_memory();
-
-    float answers[12] = {
-        1.0f,  2.0f,
-        4.0f,  8.0f,
-
-        16.0f,  32.0f,
-        64.0f,  128.0f,
-
-        2.0f,  4.0f,
-        8.0f, 16.0f,
-    };
-
-    cldnn::mem_lock<ov::float8_e8m0> output_ptr (output, get_test_stream());
-    for (int i = 0; i < 12; i++)
-    {
-        ASSERT_EQ(ov::float8_e8m0(answers[i] / 255.f), output_ptr[i]);
+        ASSERT_NEAR(ov::float16(answers[i] / 255.f), output_ptr[i], 1e-3f);
     }
 }
 

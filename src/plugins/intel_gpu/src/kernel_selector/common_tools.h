@@ -63,15 +63,21 @@ inline uint32_t BytesPerElement(WeightsType wt) {
 }
 
 inline Datatype GetComputeDatatype(Datatype dt) {
-    if (dt == Datatype::BF16) {
+    if (dt == Datatype::BF16 || dt == Datatype::F8E8M0) {
         return Datatype::F32;
+    }
+    if (dt == Datatype::F8E4M3 || dt == Datatype::F8E5M2 || dt == Datatype::F4E2M1) {
+        return Datatype::F16;
     }
     return dt;
 }
 
 inline WeightsType GetComputeWeightsType(WeightsType dt) {
-    if (dt == WeightsType::BF16) {
+    if (dt == WeightsType::BF16 || dt == WeightsType::F8E8M0) {
         return WeightsType::F32;
+    }
+    if (dt == WeightsType::F8E4M3 || dt == WeightsType::F8E5M2 || dt == WeightsType::F4E2M1) {
+        return WeightsType::F16;
     }
     return dt;
 }

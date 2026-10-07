@@ -1719,7 +1719,6 @@ JitConstants MakeTypeJitConstants(Datatype dataType, const std::string& macroNam
             max_val = "as_uchar((uchar)0xFE)";  // 2^127
             min_val = "as_uchar((uchar)0x00)";  // 2^(-127)
             val_one = "as_uchar((uchar)0x7F)";
-            val_zero = "";  // There is no representation of zero in FP8E8M0
             to_type = "_intel_convert_f32_to_e8m0(convert_float(v))";
             to_type_sat = "_intel_convert_f32_to_e8m0_sat(convert_float(v))";
             to_vector_type = "CONVERT_F8E8M0_AS_UCHAR(CAT(convert_, MAKE_VECTOR_TYPE(float, size))(v), size)";
