@@ -5,11 +5,6 @@
 #define IS_F8 (F8E5M2_OUTPUT || F8E4M3_OUTPUT)
 #define IS_F8_F4 (IS_F8 || F4E2M1_OUTPUT)
 
-#include "include/batch_headers/fetch_data.cl"
-#if IS_F8_F4
-#include "include/f8_utils.cl"
-#endif
-
 #if F4E2M1_OUTPUT
 #include "include/f4_utils.cl"
 #endif
@@ -18,7 +13,11 @@
 
 #if IS_F8_F4
     #define SCALE_TYPE float
+#if F4E2M1_OUTPUT
     #define TO_SCALE_TYPE(x) _convert_float(x)
+#else
+    #define TO_SCALE_TYPE(x) convert_float(x)
+#endif
     #define TO_SCALE_TYPE_8(x) convert_float8(x)
     #define ACT_MIN_VAL 0.000000059604645h // min half dtype val
 #else
@@ -29,11 +28,11 @@
 #endif
 
 #if F8E5M2_OUTPUT
-    #define TO_OUTPUT_TYPE_CUSTOM(val)  _convert_fp8e5m2_t_sat(val)
-    #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  _convert_fp8e5m2_t8_sat(val)
+    #define TO_OUTPUT_TYPE_CUSTOM(val)  TO_OUTPUT_TYPE_SAT(val)
+    #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  TO_OUTPUT_VECTOR_TYPE_SAT(val, 8)
 #elif F8E4M3_OUTPUT
-    #define TO_OUTPUT_TYPE_CUSTOM(val)  _convert_fp8e4m3_t_sat(val)
-    #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  _convert_fp8e4m3_t8_sat(val)
+    #define TO_OUTPUT_TYPE_CUSTOM(val)  TO_OUTPUT_TYPE_SAT(val)
+    #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  TO_OUTPUT_VECTOR_TYPE_SAT(val, 8)
 #elif F4E2M1_OUTPUT
     #define TO_OUTPUT_TYPE_CUSTOM(val)  _convert_fp4e2m1_t_sat(val)
     #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  _convert_fp4e2m1_t8_sat(val)
@@ -161,7 +160,7 @@ KERNEL(dynamic_quantize_gpu_ref)(
     OUTPUT1_TYPE zp = (OUTPUT1_TYPE)(zp_tmp);
 #else  // !ASYMMETRIC_QUANTIZATION
 #if IS_MXFP
-    SCALE_TYPE scale = (SCALE_TYPE)(exp2(floor(log2(_convert_float(OUTPUT_VAL_MAX) / convert_float(max_val)))));
+    SCALE_TYPE scale = (SCALE_TYPE)(exp2(floor(log2(OUTPUT_VAL_MAX / convert_float(max_val)))));
 #else
     SCALE_TYPE scale = TO_SCALE_TYPE(OUTPUT_VAL_MAX) / max_val;
 #endif // IS_FP8
@@ -210,7 +209,7 @@ KERNEL(dynamic_quantize_gpu_ref)(
 #if F4E2M1_OUTPUT
             vstore4(TO_OUTPUT_VEC_TYPE_CUSTOM(val).data, 0, (uchar*)(&output[byte_offset + x * 4]));
 #elif IS_F8
-            vstore8(TO_OUTPUT_VEC_TYPE_CUSTOM(val).data, 0, (char*)(&output[byte_offset + x * 8]));
+            vstore8(TO_OUTPUT_VEC_TYPE_CUSTOM(val), 0, &output[byte_offset + x * 8]);
 #else
             MAKE_VECTOR_TYPE(OUTPUT_TYPE, 8) ival = TO_OUTPUT_VEC_TYPE_CUSTOM(val);
             vstore8(ival, 0, output + byte_offset + x * 8);

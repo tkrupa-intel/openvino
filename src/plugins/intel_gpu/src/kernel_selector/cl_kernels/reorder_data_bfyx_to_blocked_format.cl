@@ -2,12 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if INPUT0_IS_F8 || OUTPUT_IS_F8
-#include "include/f8_utils.cl"
-#endif
-
-#include "include/batch_headers/fetch_data.cl"
-
 #define INPUT0_GET_TILED_INDEX(ORDER) INPUT0_GET_INDEX(ORDER)
 
 #define INPUTVTYPE CAT(INPUT0_TYPE, TILE_SIZE)

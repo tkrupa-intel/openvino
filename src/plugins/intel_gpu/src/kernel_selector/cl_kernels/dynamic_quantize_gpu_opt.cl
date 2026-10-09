@@ -5,12 +5,6 @@
 #define IS_F8 (F8E5M2_OUTPUT || F8E4M3_OUTPUT)
 #define IS_F8_F4 (IS_F8 || F4E2M1_OUTPUT)
 
-#include "include/batch_headers/fetch_data.cl"
-#if IS_F8_F4
-#include "include/batch_headers/common.cl"
-#include "include/f8_utils.cl"
-#endif
-
 #if F4E2M1_OUTPUT
 #include "include/f4_utils.cl"
 #endif
@@ -27,7 +21,11 @@
 
 #if IS_F8_F4
     #define SCALE_TYPE float
+#if F4E2M1_OUTPUT
     #define TO_SCALE_TYPE(x) _convert_float(x)
+#else
+    #define TO_SCALE_TYPE(x) convert_float(x)
+#endif
     #define ACT_MIN_VAL 0.000000059604645h // min half dtype val
     #define TO_TYPE_N_(type, n, x) convert_##type##n(x)
     #define TO_TYPE_N_SAT_(type, n, x) _convert_##type##n##_sat(x)
@@ -119,9 +117,9 @@ KERNEL(dynamic_quantize_gpu_opt)(
     }
 
 #if IS_MXFP
-    SCALE_TYPE quan_scale = (SCALE_TYPE)(exp2(floor(log2(_convert_float(OUTPUT_VAL_MAX) / convert_float(max_value)))));
+    SCALE_TYPE quan_scale = exp2(floor(log2(OUTPUT_VAL_MAX / convert_float(max_value))));
 #else
-    SCALE_TYPE quan_scale = TO_SCALE_TYPE(OUTPUT_VAL_MAX) / max_value;
+    SCALE_TYPE quan_scale = OUTPUT_VAL_MAX / max_value;
     FOR_PRECOMPUTED_REDUCTION(int precomputed_reduction = 0);
 #endif // MXFP
 
@@ -130,8 +128,9 @@ KERNEL(dynamic_quantize_gpu_opt)(
         quantized_value[i] = TO_TYPE_N_SAT(OUTPUT_TYPE, 4, convert_float4(input_0[i]) * (MAKE_VECTOR_TYPE(SCALE_TYPE, 4))quan_scale);
         vstore2(quantized_value[i].data, 0, (uchar*)(&output[output_offset + i * 2]));
 #elif IS_F8
-        quantized_value[i] = TO_TYPE_N_SAT(OUTPUT_TYPE, 4, convert_float4(input_0[i]) * (MAKE_VECTOR_TYPE(SCALE_TYPE, 4))quan_scale);
-        vstore4(quantized_value[i].data, 0, (char*)(&output[output_offset + i * 4]));
+        //quantized_value[i] = TO_TYPE_N_SAT(OUTPUT_TYPE, 4, convert_float4(input_0[i]) * (MAKE_VECTOR_TYPE(SCALE_TYPE, 4))quan_scale);
+        quantized_value[i] = TO_OUTPUT_VECTOR_TYPE_SAT(convert_float4(input_0[i]) * (MAKE_VECTOR_TYPE(SCALE_TYPE, 4))quan_scale, 4);
+        vstore4(quantized_value[i], 0, &output[output_offset + i * 4]);
 #else
         quantized_value[i] = convert_char4_rte(input_0[i] * (half4)quan_scale);
         FOR_PRECOMPUTED_REDUCTION(precomputed_reduction += quantized_value[i][0] + quantized_value[i][1] + quantized_value[i][2] + quantized_value[i][3]);
@@ -146,9 +145,7 @@ KERNEL(dynamic_quantize_gpu_opt)(
 #endif
     output_scale[output_idx] = TO_OUTPUT1_TYPE(1.0f / quan_scale);
 
-#if !(IS_MXFP)
     FOR_PRECOMPUTED_REDUCTION(output_precomputed_reduction[output_idx] = precomputed_reduction);
-#endif
 }
 
 // ***********************************************
@@ -283,16 +280,16 @@ KERNEL(dynamic_quantize_gpu_opt)(
     SCALE_TYPE scale = TO_SCALE_TYPE(OUTPUT_VAL_MAX) / max_value;
 #endif
 
-    MAKE_VECTOR_TYPE(SCALE_TYPE, VEC_SIZE) val_scaled = TO_TYPE_N(SCALE_TYPE, VEC_SIZE, val) * (MAKE_VECTOR_TYPE(SCALE_TYPE, VEC_SIZE))scale;
     if (is_valid_block) {
 #if F4E2M1_OUTPUT
+        MAKE_VECTOR_TYPE(SCALE_TYPE, VEC_SIZE) val_scaled = TO_TYPE_N(SCALE_TYPE, VEC_SIZE, val) * (MAKE_VECTOR_TYPE(SCALE_TYPE, VEC_SIZE))scale;
         val_scaled = clamp(val_scaled, -TO_SCALE_TYPE(OUTPUT_VAL_MAX), TO_SCALE_TYPE(OUTPUT_VAL_MAX));
         MAKE_VECTOR_TYPE(OUTPUT_TYPE, VEC_SIZE) out_f4 = TO_TYPE_N_SAT(OUTPUT_TYPE, VEC_SIZE, val_scaled);
         VSTORE_F4(out_f4.data, 0, (uchar*)(&output[output_offset + (blockid  * block_size) / ELEMENTS_PER_BYTE]));
 #elif IS_F8
-        val = TO_TYPE_N(INPUT0_TYPE, VEC_SIZE, val_scaled);
-        MAKE_VECTOR_TYPE(OUTPUT_TYPE, VEC_SIZE) out = TO_TYPE_N_SAT(OUTPUT_TYPE, VEC_SIZE, val);
-        VSTORE_N(out.data, 0, (char*)(&output[output_offset + (blockid * block_size)]));
+        val *= scale;
+        MAKE_VECTOR_TYPE(OUTPUT_TYPE, VEC_SIZE) out = TO_OUTPUT_VECTOR_TYPE_SAT(val, VEC_SIZE);
+        VSTORE_N(out, 0, &output[output_offset + (blockid * block_size)]);
 #elif ASYMMETRIC_QUANTIZATION
         val *= scale;
         val += zp;
@@ -455,8 +452,8 @@ KERNEL(dynamic_quantize_gpu_opt)(
         VSTORE_F4(out_f4.data, 0, (uchar*)(&output[output_byte_offset + ((local_id * iteration + i) * block_size) / ELEMENTS_PER_BYTE]));
 #elif IS_F8
         val[i] = TO_TYPE_N(INPUT0_TYPE, VEC_SIZE, val_scaled);
-        MAKE_VECTOR_TYPE(OUTPUT_TYPE, VEC_SIZE) out = TO_TYPE_N_SAT(OUTPUT_TYPE, VEC_SIZE, val[i]);
-        VSTORE_N(out.data, 0, (char*)(&output[offset + ((local_id * iteration + i) * block_size)]));
+        MAKE_VECTOR_TYPE(OUTPUT_TYPE, VEC_SIZE) out = TO_OUTPUT_VECTOR_TYPE_SAT(val[i], VEC_SIZE);
+        VSTORE_N(out, 0, &output[offset + ((local_id * iteration + i) * block_size)]);
 #elif ASYMMETRIC_QUANTIZATION
         val[i] = TO_TYPE_N(INPUT0_TYPE, VEC_SIZE, val_scaled);
         val[i] += zp;

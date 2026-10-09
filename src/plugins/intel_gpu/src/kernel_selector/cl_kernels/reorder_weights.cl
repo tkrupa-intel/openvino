@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if INPUT0_IS_F8 || OUTPUT_IS_F8
-#include "include/f8_utils.cl"
-#endif
-
-#include "include/batch_headers/fetch_weights.cl"
 #include "include/image_data.cl"
 
 #define DECLARE_SAMPLER const sampler_t imageSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST

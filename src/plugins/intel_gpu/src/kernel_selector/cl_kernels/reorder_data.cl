@@ -4,11 +4,6 @@
 
 #define IS_FP4 (F4E2M1_INPUT || F4E2M1_OUTPUT)
 
-#if (INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8 || MEAN_SUBTRACT_IS_F8 || IS_FP4)
-#include "include/batch_headers/common.cl"
-#include "include/f8_utils.cl"
-#endif
-
 #if IS_FP4
 #include "include/f4_utils.cl"
 #endif

@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8
-#include "include/f8_utils.cl"
-#endif
-
 #include "include/reshape_dims.cl"
-#include "include/batch_headers/fetch_data.cl"
 
 
 inline void FUNC(get_yxfb_coords_from_linear_idx_no_padding)(uint data_idx, uint* b, uint* f, uint* x, uint* y)

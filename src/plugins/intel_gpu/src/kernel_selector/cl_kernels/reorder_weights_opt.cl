@@ -4,10 +4,6 @@
 
 #define IS_FP4 (F4E2M1_INPUT || F4E2M1_OUTPUT)
 
-#if (INPUT0_IS_F8 || OUTPUT_IS_F8 || IS_FP4)
-#include "include/f8_utils.cl"
-#endif
-
 #if IS_FP4
 #include "include/f4_utils.cl"
 #endif
@@ -17,8 +13,6 @@
 #else
     #define INVALID_LANE_VAL OUTPUT_VAL_ZERO
 #endif
-
-#include "include/batch_headers/common.cl"
 
 INIT_INPUT0_INDEX_FUNC_HERE
 INIT_OUTPUT_INDEX_FUNC_HERE
@@ -125,22 +119,22 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
     OUTPUT_TYPE val;
 #if defined(IFM_PADDING) && OSV_FIRST
     if (ifm_valid && valid_lane) {
-        val = TO_OUTPUT_TYPE(input[input_idx]);
+        val = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(input[input_idx]));
     } else {
         val = INVALID_LANE_VAL;
     }
 #else
-    val = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : INVALID_LANE_VAL;
+    val = valid_lane ? TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(input[input_idx])) : INVALID_LANE_VAL;
 #endif
 #else
     OUTPUT_VEC_TYPE val = 0;
     unroll_for (int b = 0; b < SECOND_BLOCK_SIZE; b++) {
 #if defined(IFM_PADDING) && OSV_FIRST
         if (valid_lane && (i + b) < ACTUAL_IFM_NUM) {
-            val[b] = TO_OUTPUT_TYPE(input[input_idx]);
+            val[b] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(input[input_idx]));
         }
 #else
-        val[b] = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : INVALID_LANE_VAL;
+        val[b] = valid_lane ? TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(input[input_idx])) : INVALID_LANE_VAL;
 #endif
         input_idx += PITCH;
     }

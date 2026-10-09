@@ -2386,7 +2386,7 @@ TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e4m3) {
     }
 }
 
-TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e5m2) {
+TEST(reorder_gpu, basic_convert_f8e5m2_f32_f8e5m2) {
     //  Converts entire unambiguous range of F8E5M2 numbers to FP32 and back.
     //
     //  F8E5M2 layout: sign(1) + exponent(5) + mantissa(2).
@@ -2468,7 +2468,7 @@ TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e5m2) {
     }
 }
 
-TEST(reorder_gpu, basic_convert_f8e4m3_f32_f8e8m0) {
+TEST(reorder_gpu, basic_convert_f8e8m0_f32_f8e8m0) {
     //  Converts entire unambiguous range of F8E8M0 numbers to FP32 and back.
     //
     //  F8E8M0 layout: sign(1) + exponent(8) + mantissa(0).
@@ -4846,13 +4846,13 @@ static void reorder_weights_gpu_fp8(std::string impl_name, data_types data_type)
 TEST(reorder_weights_gpu_fp8, reorder_weights) {
     reorder_weights_gpu_fp8("reorder_weights", data_types::f8e4m3);
     reorder_weights_gpu_fp8("reorder_weights", data_types::f8e5m2);
-    //reorder_weights_gpu_fp8("reorder_weights", data_types::f8e8m0);
+    reorder_weights_gpu_fp8("reorder_weights", data_types::f8e8m0);
 }
 
 TEST(reorder_weights_gpu_fp8, reorder_weights_opt) {
     reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e4m3);
     reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e5m2);
-    //reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e8m0);
+    reorder_weights_gpu_fp8("reorder_weights_opt", data_types::f8e8m0);
 }
 
 TEST(reorder_gpu_i64, basic)
@@ -6832,4 +6832,14 @@ TEST(reorder_gpu_i4, f8e4m3_to_i4) {
 TEST(reorder_gpu_i4, f8e4m3_to_u4) {
     std::vector<ov::float8_e4m3> input_data = {ov::float8_e4m3(-8.f), ov::float8_e4m3(7.5f), ov::float8_e4m3(0.0f), ov::float8_e4m3(6.0f)};
     run_reorder_test_i4(data_types::f8e4m3, data_types::u4, input_data, {0x70, 0x60});
+}
+
+TEST(reorder_gpu_i4, f8e5m2_to_i4) {
+    std::vector<ov::float8_e5m2> input_data = {ov::float8_e5m2(-8.f), ov::float8_e5m2(7.5f), ov::float8_e5m2(0.0f), ov::float8_e5m2(6.0f)};
+    run_reorder_test_i4(data_types::f8e5m2, data_types::i4, input_data, {0x78, 0x60});
+}
+
+TEST(reorder_gpu_i4, f8e5m2_to_u4) {
+    std::vector<ov::float8_e5m2> input_data = {ov::float8_e5m2(-8.f), ov::float8_e5m2(7.5f), ov::float8_e5m2(0.0f), ov::float8_e5m2(6.0f)};
+    run_reorder_test_i4(data_types::f8e5m2, data_types::u4, input_data, {0x70, 0x60});
 }

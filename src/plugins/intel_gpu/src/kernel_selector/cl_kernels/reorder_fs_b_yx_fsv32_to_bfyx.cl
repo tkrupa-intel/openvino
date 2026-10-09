@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if INPUT_REORDER_IS_F8 || OUTPUT_REORDER_IS_F8
-#include "include/f8_utils.cl"
-#endif
-
-#include "include/batch_headers/fetch_data.cl"
 #include "include/unit_type.cl"
 
 #define STORE_RAW_(idx, val) output[idx] = TO_OUTPUT_REORDER_TYPE(ACTIVATION_TYPED(OUTPUT_REORDER, val, ACTIVATION_PARAMS_TYPED))

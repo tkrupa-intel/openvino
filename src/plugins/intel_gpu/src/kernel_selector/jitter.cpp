@@ -1678,15 +1678,14 @@ JitConstants MakeTypeJitConstants(Datatype dataType, const std::string& macroNam
             break;
         case Datatype::F8E4M3:
             type = "char";
-            max_val = "as_char((char)0x7E)"; // 448.0
-            min_val = "as_char((char)0xFE)"; // -448.0
-            val_one = "as_char((char)0x38)";
-            val_zero = "as_char((char)0x0)";
+            max_val = "_intel_convert_hf8_to_f16((char)0x7E)"; // 448.0
+            min_val = "_intel_convert_hf8_to_f16((char)0xFE)"; // -448.0
+            val_one = "_intel_convert_hf8_to_f16((char)0x38)";
+            val_zero = "_intel_convert_hf8_to_f16((char)0x0)";
             to_type = "_intel_convert_f16_to_hf8(convert_half(v))";
             to_type_sat = "_intel_convert_f16_to_hf8_sat(convert_half(v))";
             to_vector_type = "CONVERT_F8E4M3_AS_UCHAR(CAT(convert_, MAKE_VECTOR_TYPE(half, size))(v), size)";
-            to_vector_type_sat = "CONVERT_F8E4M3_AS_UCHAR(CAT(CAT(convert_, MAKE_VECTOR_TYPE(half, size)), _sat)(v), size)";
-            as_type = "as_char(v)";
+            to_vector_type_sat = "CONVERT_F8E4M3_AS_UCHAR_SAT(CAT(convert_, MAKE_VECTOR_TYPE(half, size))(v), size)";
             compute_type = "half";
             to_compute_type = "convert_half(v)";
             decode_compute_type = "_intel_convert_hf8_to_f16(v)";
@@ -1697,15 +1696,14 @@ JitConstants MakeTypeJitConstants(Datatype dataType, const std::string& macroNam
             break;
         case Datatype::F8E5M2:
             type = "uchar";
-            max_val = "as_uchar((uchar)0x7B)";  // 57344.0
-            min_val = "as_uchar((uchar)0xFB)";  // -57344.0
-            val_one = "as_uchar((uchar)0x3C)";
-            val_zero = "as_uchar((uchar)0x0)";
+            max_val = "_intel_convert_bf8_to_f16((uchar)0x7B)";  // 57344.0
+            min_val = "_intel_convert_bf8_to_f16((uchar)0xFB)";  // -57344.0
+            val_one = "_intel_convert_bf8_to_f16((uchar)0x3C)";
+            val_zero = "_intel_convert_bf8_to_f16((uchar)0x0)";
             to_type = "_intel_convert_f16_to_bf8(convert_half(v))";
             to_type_sat = "_intel_convert_f16_to_bf8_sat(convert_half(v))";
             to_vector_type = "CONVERT_F8E5M2_AS_UCHAR(CAT(convert_, MAKE_VECTOR_TYPE(half, size))(v), size)";
-            to_vector_type_sat = "CONVERT_F8E5M2_AS_UCHAR(CAT(CAT(convert_, MAKE_VECTOR_TYPE(half, size)), _sat)(v), size)";
-            as_type = "as_uchar(v)";
+            to_vector_type_sat = "CONVERT_F8E5M2_AS_UCHAR_SAT(CAT(convert_, MAKE_VECTOR_TYPE(half, size))(v), size)";
             compute_type = "half";
             to_compute_type = "convert_half(v)";
             decode_compute_type = "_intel_convert_bf8_to_f16(v)";
@@ -1716,14 +1714,13 @@ JitConstants MakeTypeJitConstants(Datatype dataType, const std::string& macroNam
             break;
         case Datatype::F8E8M0:
             type = "uchar";
-            max_val = "as_uchar((uchar)0xFE)";  // 2^127
-            min_val = "as_uchar((uchar)0x00)";  // 2^(-127)
-            val_one = "as_uchar((uchar)0x7F)";
+            max_val = "_intel_convert_e8m0_to_f32((uchar)0xFE)";  // 2^127
+            min_val = "_intel_convert_e8m0_to_f32((uchar)0x00)";  // 2^(-127)
+            val_one = "_intel_convert_e8m0_to_f32((uchar)0x7F)";
             to_type = "_intel_convert_f32_to_e8m0(convert_float(v))";
             to_type_sat = "_intel_convert_f32_to_e8m0_sat(convert_float(v))";
             to_vector_type = "CONVERT_F8E8M0_AS_UCHAR(CAT(convert_, MAKE_VECTOR_TYPE(float, size))(v), size)";
-            to_vector_type_sat = "CONVERT_F8E8M0_AS_UCHAR(CAT(CAT(convert_, MAKE_VECTOR_TYPE(float, size)), _sat)(v), size)";
-            as_type = "as_uchar(v)";
+            to_vector_type_sat = "CONVERT_F8E8M0_AS_UCHAR(CAT(convert_, MAKE_VECTOR_TYPE(float, size))(v), size)";
             compute_type = "float";
             to_compute_type = "convert_float(v)";
             decode_compute_type = "_intel_convert_e8m0_to_f32(v)";
