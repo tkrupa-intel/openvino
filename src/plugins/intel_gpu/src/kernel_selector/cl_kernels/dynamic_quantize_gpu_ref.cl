@@ -13,11 +13,7 @@
 
 #if IS_F8_F4
     #define SCALE_TYPE float
-#if F4E2M1_OUTPUT
     #define TO_SCALE_TYPE(x) _convert_float(x)
-#else
-    #define TO_SCALE_TYPE(x) convert_float(x)
-#endif
     #define TO_SCALE_TYPE_8(x) convert_float8(x)
     #define ACT_MIN_VAL 0.000000059604645h // min half dtype val
 #else
@@ -27,10 +23,7 @@
     #define ACT_MIN_VAL 0.003h      // Too small value may generate inf during 127/ACT_MIN_VAL
 #endif
 
-#if F8E5M2_OUTPUT
-    #define TO_OUTPUT_TYPE_CUSTOM(val)  TO_OUTPUT_TYPE_SAT(val)
-    #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  TO_OUTPUT_VECTOR_TYPE_SAT(val, 8)
-#elif F8E4M3_OUTPUT
+#if IS_F8
     #define TO_OUTPUT_TYPE_CUSTOM(val)  TO_OUTPUT_TYPE_SAT(val)
     #define TO_OUTPUT_VEC_TYPE_CUSTOM(val)  TO_OUTPUT_VECTOR_TYPE_SAT(val, 8)
 #elif F4E2M1_OUTPUT
@@ -162,7 +155,7 @@ KERNEL(dynamic_quantize_gpu_ref)(
 #if IS_MXFP
     SCALE_TYPE scale = (SCALE_TYPE)(exp2(floor(log2(OUTPUT_VAL_MAX / convert_float(max_val)))));
 #else
-    SCALE_TYPE scale = TO_SCALE_TYPE(OUTPUT_VAL_MAX) / max_val;
+    SCALE_TYPE scale = OUTPUT_VAL_MAX / max_val;
 #endif // IS_FP8
 #endif // ASYMMETRIC_QUANTIZATION
 
