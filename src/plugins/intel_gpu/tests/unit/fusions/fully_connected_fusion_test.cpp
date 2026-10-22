@@ -203,6 +203,7 @@ public:
 #define CASE_FC_FP16_5 { 1, 128, 76 }, { 1, 128, 768 }, { 768, 76 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f32, format::bfyx
 #define CASE_FC_FP16_6 { 2, 1, 76 }, { 2, 1, 768 }, { 768, 76 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f32, format::bfyx
 #define CASE_FC_FP16_7 { 2, 128, 76 }, { 2, 128, 768 }, { 768, 76 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f32, format::bfyx
+#define CASE_FC_FP16_MXFP8 { 1, 64 }, { 1, 64 }, { 64, 64 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f16, format::bfyx
 #define CASE_FC_FP16_3D_1 { 2, 32, 3 }, { 2, 32, 16 }, { 16, 3 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f32, format::bfyx
 #define CASE_FC_FP16_3D_2 { 1, 1, 3 }, { 1, 1, 32 }, { 32, 3 }, data_types::f16, format::bfyx, data_types::f16, format::oiyx, data_types::f32, format::bfyx
 
@@ -860,6 +861,36 @@ TEST_P(fc_compressed_dyn_quan_and_quantized, basic) {
 #define CASE_FC_FP16_INT8_COMP_DYN_QUAN { 64, 128 }, { 64, 128 }, { 128, 128 }, data_types::f16, format::bfyx, data_types::u8, format::oiyx, data_types::f16, format::bfyx
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_compressed_dyn_quan_and_quantized, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
     fully_connected_test_params{ CASE_FC_FP16_INT8_COMP_DYN_QUAN, 3, 3 },
+}));
+
+class fc_dynamic_quantize_mxfp8_onednn : public FullyConnectedFusingTestOneDNN {};
+TEST_P(fc_dynamic_quantize_mxfp8_onednn, basic) {
+    auto p = GetParam();
+
+    dynamic_quantize::Attributes dq_config;
+    dq_config.quantization_type = ov::op::internal::DynamicQuantize::QuantizationType::Symmetric;
+    dq_config.quantization_dt = data_types::f8e4m3;
+    dq_config.scale_dt = data_types::f8e8m0;
+    dq_config.zp_dt = data_types::dynamic;
+    dq_config.group_sizes = {1, 32};
+    dq_config.scales_zp_output_order = {0, 1};
+    dq_config.output_storage_type = ov::op::internal::DynamicQuantize::OutputStorageType::Planar;
+
+    create_topologies(
+        input_layout("input", get_input_layout(p)),
+        data("weights", get_mem(get_weights_layout(p))),
+        fully_connected("fc_prim", input_info("input"), "weights", "", get_output_dim_size(p)),
+        dynamic_quantize("dynamic_quantize", input_info("fc_prim"), dq_config, 2),
+        reorder("reorder_data_bfyx", input_info("dynamic_quantize", 0), p.default_format, data_types::f32),
+        reorder("reorder_scale_bfyx", input_info("dynamic_quantize", 1), p.default_format, data_types::f32)
+    );
+
+    tolerance = default_tolerance(data_types::i8);
+    execute(p);
+}
+
+INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_dynamic_quantize_mxfp8_onednn, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
+    fully_connected_test_params{ CASE_FC_FP16_MXFP8, 2, 3 },
 }));
 
 class fc_compressed_int8_bias_dynamic_onednn : public FullyConnectedFusingTestOneDNN {};
