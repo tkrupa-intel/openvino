@@ -1413,16 +1413,19 @@ void prepare_primitive_fusing::fuse_simple_primitives(program &p) {
                     return;
             }
             auto& input_data = dynamic_quantize_node.get_dependency(0);
-            if (!input_data.is_type<rms>() || input_data.get_users().size() != 1 || input_data.get_dependencies().empty())
+            if (!input_data.is_type<rms>() && !input_data.is_type<fully_connected>())
                 return;
 
-            if (input_data.in_shape_of_subgraph || dynamic_quantize_node.in_shape_of_subgraph)
+            if (input_data.in_shape_of_subgraph || dynamic_quantize_node.in_shape_of_subgraph ||
+                input_data.get_users().size() != 1 || input_data.get_dependencies().empty())
                 return;
 
-            // Incompatible with feature axis.
-            const auto rms_prim = input_data.as<rms>().get_primitive();
-            if (rms_prim->axis != static_cast<int64_t>(input_data.get_output_layout().get_rank()) - 1 && rms_prim->axis != -1)
-                return;
+            if (input_data.is_type<rms>()) {
+                // Incompatible with feature axis.
+                const auto rms_prim = input_data.as<rms>().get_primitive();
+                if (rms_prim->axis != static_cast<int64_t>(input_data.get_output_layout().get_rank()) - 1 && rms_prim->axis != -1)
+                    return;
+            }
 
             auto dyn_quan_prim = dynamic_quantize_node.get_primitive();
             auto attrs = dyn_quan_prim->attrs;

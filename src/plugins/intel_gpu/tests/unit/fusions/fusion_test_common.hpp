@@ -46,10 +46,10 @@ public:
     void compare(network& not_fused, network& fused, T& p, bool count_reorder = false) {
         auto outputs_ref = not_fused.execute();
         auto outputs_fused = fused.execute();
-        auto get_reorders_count = [](network& net) -> size_t {
+        auto get_op_count = [](network& net, const std::string& id) -> size_t {
             size_t count = 0;
             for (auto& pi : net.get_primitives_info()) {
-                if (pi.type_id == "reorder") {
+                if (pi.type_id == id) {
                     auto exec_prims = net.get_executed_primitives();
                     auto it = std::find_if(exec_prims.begin(), exec_prims.end(), [&](const std::pair<primitive_id, event::ptr>& e) -> bool {
                         return e.first == pi.original_id;
@@ -62,8 +62,10 @@ public:
             return count;
         };
 
-        size_t reorders_count_fused = get_reorders_count(fused);
-        size_t reorders_count_not_fused = get_reorders_count(not_fused);
+        size_t reorders_count_fused = get_op_count(fused, "reorder");
+        size_t reorders_count_not_fused = get_op_count(not_fused, "reorder");
+        size_t dyn_quan_count_fused = get_op_count(fused, "dynamic_quantize");
+        size_t dyn_quan_count_not_fused = get_op_count(not_fused, "dynamic_quantize");
 
         std::stringstream description;
         description << std::endl << "not fused: " << std::endl;
@@ -76,21 +78,32 @@ public:
         }
         SCOPED_TRACE(description.str());
         // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
+
+        const bool dyn_quan_fused = dyn_quan_count_not_fused != 0 && dyn_quan_count_fused == 0;
+        const size_t expected_output_refs = static_cast<size_t>(1 + (dyn_quan_fused ? 1 : 0));
+
         ASSERT_EQ(fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_fused), p.expected_fused_primitives);
         ASSERT_EQ(not_fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_not_fused), p.expected_not_fused_primitives);
         ASSERT_EQ(outputs_ref.size(), outputs_fused.size());
-        ASSERT_EQ(outputs_ref.size(), size_t(1));
+        ASSERT_EQ(outputs_ref.size(), expected_output_refs);
 
-        std::vector<float> val_opt;
-        auto val_ref = get_output_values_to_float(not_fused, outputs_ref.begin()->second);
-        ASSERT_NO_THROW(val_opt = get_output_values_to_float(fused, outputs_fused.begin()->second));
-        ASSERT_EQ(val_ref.size(), val_opt.size());
-        for (size_t i = 0; i < val_ref.size(); i++) {
-            ASSERT_NEAR(val_ref[i], val_opt[i], tolerance)
-                << "tolerance = " << tolerance
-                << "\ni = " << i
-                << "\nref[i] = " << val_ref[i]
-                << "\nopt[i] = " << val_opt[i];
+        size_t i = 0;
+        for (const auto& output_ref : outputs_ref) {
+            auto output_fused = outputs_fused.find(output_ref.first);
+            ASSERT_NE(output_fused, outputs_fused.end());
+            std::vector<float> val_opt;
+            auto val_ref = get_output_values_to_float(not_fused, output_ref.second);
+            ASSERT_NO_THROW(val_opt = get_output_values_to_float(fused, output_fused->second));
+            ASSERT_EQ(val_ref.size(), val_opt.size());
+            for (size_t j = 0; j < val_ref.size(); j++) {
+                EXPECT_NEAR(val_ref[j], val_opt[j], tolerance)
+                    << "tolerance = " << tolerance
+                    << "\ni = " << i
+                    << "\nj = " << j
+                    << "\nref[j] = " << val_ref[j]
+                    << "\nopt[j] = " << val_opt[j];
+            }
+            ++i;
         }
     }
 
